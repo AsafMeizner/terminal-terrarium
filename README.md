@@ -103,7 +103,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 
 <!-- scenes:start -->
 
-**33 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**32 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -155,7 +155,6 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 |---|---|---|
 | <img src="docs/screenshots/aurora.png" width="300" alt="aurora"> | **`aurora`** | northern lights rippling over dark mountains and a still lake<br><sub>options: `intensity`, `colors`, `reflection`, `curtains`</sub> |
 | <img src="docs/screenshots/campfire.png" width="300" alt="campfire"> | **`campfire`** | a crackling campfire under the stars, with sparks and drifting smoke<br><sub>options: `size`, `sparks`, `wind`, `palette`</sub> |
-|  | **`desert`** | sand streaming off dunes, saguaros, a camel caravan, sunset into a milky-way night<br><sub>options: `cycle`, `time`, `caravan`</sub> |
 | <img src="docs/screenshots/fireflies.png" width="300" alt="fireflies"> | **`fireflies`** | fireflies blinking over a summer meadow at the edge of a forest<br><sub>options: `count`, `color`</sub> |
 | <img src="docs/screenshots/rain.png" width="300" alt="rain"> | **`rain`** | night rain over a city, with splashes, ripples and lightning<br><sub>options: `intensity`, `wind`, `lightning`, `skyline`</sub> |
 | <img src="docs/screenshots/skyline.png" width="300" alt="skyline"> | **`skyline`** | a city skyline time-lapse: day to night, windows lighting up, traffic streaming below<br><sub>options: `cycle`, `density`, `start`, `clouds`</sub> |

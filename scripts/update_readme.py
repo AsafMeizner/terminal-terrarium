@@ -3,6 +3,7 @@
     python scripts/update_readme.py            # rewrite the block between the scene markers
     python scripts/update_readme.py --check    # exit 1 if README is out of date
     python scripts/update_readme.py --skip=a,b # leave unfinished scenes out
+    python scripts/update_readme.py --tracked  # only scenes already committed to git
 
 Each scene's name, blurb, tags and options come from its class, and its screenshot from
 docs/screenshots/NAME.png (make one with scripts/make_gifs.py NAME).
@@ -67,6 +68,13 @@ def main():
     head, rest = text.split(START, 1)
     _, tail = rest.split(END, 1)
     skip = set()
+    if "--tracked" in sys.argv:  # only scenes committed to git (skip work in progress)
+        import subprocess
+
+        tracked = subprocess.run(["git", "ls-files", "terrarium/scenes"], cwd=ROOT,
+                                 capture_output=True, text=True, check=True).stdout.split()
+        names = {os.path.splitext(os.path.basename(f))[0] for f in tracked}
+        skip |= set(all_scenes()) - names
     for a in sys.argv[1:]:
         if a.startswith("--skip="):
             skip |= set(a.split("=", 1)[1].split(","))
