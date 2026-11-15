@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "terminal-terrarium"
+dynamic = ["version"]
+description = "Animated ASCII art for your terminal: jellyfish, bonsai, flowers, koi, aurora and more"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Asaf Meizner"}]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["terminal", "ascii", "animation", "screensaver", "ansi", "cli"]
+classifiers = [
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+    "Topic :: Artistic Software",
+    "Topic :: Terminals",
+]
+
+[project.optional-dependencies]
+export = ["pillow>=9"]
+
+[project.scripts]
+terrarium = "terrarium.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/AsafMeizner/terminal-terrarium"
+
+[tool.setuptools]
+packages = ["terrarium", "terrarium.scenes"]
+
+[tool.setuptools.dynamic]
+version = {attr = "terrarium.__version__"}
