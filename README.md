@@ -106,13 +106,14 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 
 <!-- scenes:start -->
 
-**37 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**40 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
 | | scene | |
 |---|---|---|
 | <img src="docs/screenshots/dandelion.png" width="300" alt="dandelion"> | **`dandelion`** | dandelion clocks in the wind, seeds drifting off on curling paths<br><sub>options: `heads`, `wind`, `mood`</sub> |
+| <img src="docs/screenshots/hummingbird.png" width="300" alt="hummingbird"> | **`hummingbird`** | a hummingbird hovers and darts between trumpet flowers, its throat flashing in the light<br><sub>options: `birds`, `flower`</sub> |
 | <img src="docs/screenshots/lilies.png" width="300" alt="lilies"> | **`lilies`** | a bouquet of lilies swaying and breathing, pollen drifting in the light<br><sub>options: `count`, `color`, `sway`, `ribbon`</sub> |
 | <img src="docs/screenshots/rose.png" width="300" alt="rose"> | **`rose`** | a single rose unfurling from a bud, dropping a petal now and then<br><sub>options: `color`, `bloom`, `loop`</sub> |
 
@@ -132,6 +133,8 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 | | scene | |
 |---|---|---|
 | <img src="docs/screenshots/butterflies.png" width="300" alt="butterflies"> | **`butterflies`** | big patterned butterflies and moths flutter through a night garden and rest on flowers<br><sub>options: `count`, `family`, `flowers`, `trail`</sub> |
+| <img src="docs/screenshots/murmuration.png" width="300" alt="murmuration"> | **`murmuration`** | a starling murmuration swirls over a sunset lake, bending around a diving falcon<br><sub>options: `birds`, `predator`, `palette`</sub> |
+| <img src="docs/screenshots/peacock.png" width="300" alt="peacock"> | **`peacock`** | a peacock struts, then fans its train into a full shimmering display of eyespots<br><sub>options: `interval`, `palette`</sub> |
 | <img src="docs/screenshots/seascape.png" width="300" alt="seascape"> | **`seascape`** | a cross-section of the sea: boats and leaping dolphins above, fish and kelp below<br><sub>options: `time`, `boats`, `dolphins`, `fish`</sub> |
 
 ### Water & ocean

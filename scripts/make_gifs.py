@@ -24,7 +24,7 @@ HIGHLIGHTS = ["jellyfish", "lilies", "bonsai", "timelapse", "fireworks", "whale"
 
 # Seconds to simulate before capturing, for scenes that grow or bloom.
 WARMUP = {"bonsai": 40, "rose": 22, "seasons": 20, "sakura": 10, "snow": 30, "life": 6,
-          "campfire": 6, "timelapse": 70, "volcano": 12, "fireworks": 3, "peacock": 14}
+          "campfire": 6, "timelapse": 70, "volcano": 12, "fireworks": 3, "peacock": 32}
 SEED = {"rain": 3}
 OPTS = {"rain": ["-o", "skyline=city"]}  # extra flags for nicer previews
 
