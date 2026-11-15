@@ -357,11 +357,17 @@ class Renderer:
 
 # --------------------------------------------------------------------------- terminal + keys
 
+MOUSE_ON = "\x1b[?1000h\x1b[?1003h\x1b[?1006h"   # clicks + motion, SGR coordinates
+MOUSE_OFF = "\x1b[?1006l\x1b[?1003l\x1b[?1000l"
+
+
 class Terminal:
-    def __init__(self, alt_screen=True):
+    def __init__(self, alt_screen=True, mouse=True):
         self.alt = alt_screen
+        self.mouse = mouse
         self.out = sys.stdout
         self._unix_old = None
+        self._win_in = None
 
     def enter(self):
         if sys.platform == "win32":
@@ -374,6 +380,13 @@ class Terminal:
                 mode = ctypes.c_uint32()
                 if k.GetConsoleMode(h, ctypes.byref(mode)):
                     k.SetConsoleMode(h, mode.value | 0x0004)  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                if self.mouse:
+                    # mouse reports arrive as VT text: ENABLE_VIRTUAL_TERMINAL_INPUT, no quick-edit
+                    hin = k.GetStdHandle(-10)
+                    imode = ctypes.c_uint32()
+                    if k.GetConsoleMode(hin, ctypes.byref(imode)):
+                        self._win_in = (hin, imode.value)
+                        k.SetConsoleMode(hin, (imode.value | 0x0200 | 0x0080) & ~0x0040)
             except Exception:
                 pass
         try:
@@ -387,11 +400,19 @@ class Terminal:
             fd = sys.stdin.fileno()
             self._unix_old = termios.tcgetattr(fd)
             tty.setcbreak(fd)
-        seq = ("\x1b[?1049h" if self.alt else "") + "\x1b[?25l\x1b[2J\x1b[H"
+        seq = ("\x1b[?1049h" if self.alt else "") + "\x1b[?25l\x1b[2J\x1b[H" + (MOUSE_ON if self.mouse else "")
         self.write(seq)
 
     def exit(self):
-        self.write("\x1b[0m\x1b[?25h" + ("\x1b[?1049l" if self.alt else "\x1b[2J\x1b[H"))
+        self.write((MOUSE_OFF if self.mouse else "") + "\x1b[0m\x1b[?25h"
+                   + ("\x1b[?1049l" if self.alt else "\x1b[2J\x1b[H"))
+        if self._win_in is not None:
+            try:
+                import ctypes
+
+                ctypes.windll.kernel32.SetConsoleMode(self._win_in[0], self._win_in[1])
+            except Exception:
+                pass
         if self._unix_old is not None:
             import termios
 
@@ -414,52 +435,77 @@ _ESC_KEYS = {"[A": "up", "[B": "down", "[C": "right", "[D": "left", "OA": "up", 
 _WIN_KEYS = {"H": "up", "P": "down", "M": "right", "K": "left"}
 
 
+def parse_input(data):
+    """Turn raw terminal input into events.
+
+    Returns key names ("q", "up", "esc"...) and mouse tuples: ("click", x, y) for a left-button
+    press and ("move", x, y) for motion, in 0-based cells.
+    """
+    events = []
+    i = 0
+    n = len(data)
+    while i < n:
+        c = data[i]
+        if c == "\x1b":
+            if data.startswith("[<", i + 1):  # SGR mouse report: ESC [ < b ; x ; y (M|m)
+                j = i + 3
+                while j < n and data[j] not in "Mm":
+                    j += 1
+                if j < n:
+                    try:
+                        b, x, y = (int(v) for v in data[i + 3:j].split(";"))
+                        if data[j] == "M" and b & 32:
+                            events.append(("move", x - 1, y - 1))
+                        elif data[j] == "M" and b & 3 == 0 and b < 64:
+                            events.append(("click", x - 1, y - 1))
+                    except ValueError:
+                        pass
+                    i = j + 1
+                    continue
+            seq = data[i + 1:i + 3]
+            if seq in _ESC_KEYS:
+                events.append(_ESC_KEYS[seq])
+                i += 3
+                continue
+            events.append("esc")
+        else:
+            events.append(c)
+        i += 1
+    return events
+
+
 class Keys:
-    """Non-blocking keyboard reader. read() returns a list of key names."""
+    """Non-blocking keyboard (and mouse) reader. read() returns key names and mouse tuples."""
 
     def read(self):
-        keys = []
         if sys.platform == "win32":
             try:
                 import msvcrt
             except ImportError:
-                return keys
+                return []
+            keys = []
+            data = ""
             while msvcrt.kbhit():
                 c = msvcrt.getwch()
-                if c in ("\x00", "\xe0"):
+                if c in ("\x00", "\xe0"):  # classic console arrow keys
                     keys.append(_WIN_KEYS.get(msvcrt.getwch(), ""))
-                elif c == "\x1b":
-                    keys.append("esc")
                 elif c == "\x03":
                     raise KeyboardInterrupt
                 else:
-                    keys.append(c)
-            return keys
+                    data += c
+            return keys + parse_input(data)
         if not sys.stdin.isatty():
-            return keys
+            return []
         import select
 
         fd = sys.stdin.fileno()
         data = ""
         while select.select([fd], [], [], 0)[0]:
-            chunk = os.read(fd, 64)
+            chunk = os.read(fd, 256)
             if not chunk:
                 break
             data += chunk.decode("utf-8", "ignore")
-        i = 0
-        while i < len(data):
-            c = data[i]
-            if c == "\x1b":
-                seq = data[i + 1:i + 3]
-                if seq in _ESC_KEYS:
-                    keys.append(_ESC_KEYS[seq])
-                    i += 3
-                    continue
-                keys.append("esc")
-            else:
-                keys.append(c)
-            i += 1
-        return keys
+        return parse_input(data)
 
 
 # --------------------------------------------------------------------------- scenes
@@ -486,12 +532,14 @@ class Scene:
     blurb = ""         # one-liner shown in --list and on the title card
     tags: tuple = ()   # e.g. ("nature", "ocean")
     options: dict = {}  # {"count": (default, "help text")}; read with self.opt("count")
+    interactions = ""   # what clicking / pointing does, e.g. "click to drop food"; "" = nothing
 
     def __init__(self, ctx: Context, w: int, h: int):
         self.ctx = ctx
         self.rng = random.Random(ctx.rng.random())
         self.w, self.h = w, h
         self.t = 0.0
+        self.pointer = None  # (x, y) in cells while the mouse is over the scene, else None
         self.setup()
 
     # -- hooks -------------------------------------------------------------
@@ -507,6 +555,9 @@ class Scene:
 
     def draw(self, cv: Canvas):
         raise NotImplementedError
+
+    def on_click(self, x, y):
+        """The user clicked cell (x, y) (floats, in cells). Override to react."""
 
     # -- helpers -----------------------------------------------------------
     @property

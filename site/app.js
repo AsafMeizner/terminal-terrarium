@@ -242,6 +242,8 @@ function syncControls() {
   const s = sceneMeta();
   $("scene").value = cfg.scene;
   $("blurb").textContent = s.blurb;
+  $("interact").textContent = s.interactions ? `Try it: ${s.interactions} in the tank.` : "";
+  art.style.cursor = s.interactions ? "crosshair" : "default";
   $("scene-title").textContent = s.title;
   document.title = `${s.title}, terminal-terrarium`;
   $("seed").value = cfg.seed;
@@ -370,6 +372,25 @@ function bindControls() {
     else if (k === "T") cycle("theme", meta.themes, -1);
     else if (k === "c") cycle("charset", meta.charsets);
     else if (k === "f") toggleFull();
+  });
+
+  // the mouse: scenes can react to pointing and clicking
+  const toCell = (e) => {
+    const r = art.getBoundingClientRect();
+    return { x: (e.clientX - r.left) / cell.w, y: (e.clientY - r.top - cell.yPad) / cell.h };
+  };
+  let lastPoint = 0;
+  art.addEventListener("pointermove", (e) => {
+    const now = performance.now();
+    if (now - lastPoint < 30) return; // ~30 updates a second is plenty
+    lastPoint = now;
+    const c = toCell(e);
+    worker.postMessage({ type: "point", x: c.x, y: c.y });
+  });
+  art.addEventListener("pointerleave", () => worker.postMessage({ type: "point", x: -1, y: -1 }));
+  art.addEventListener("pointerdown", (e) => {
+    const c = toCell(e);
+    worker.postMessage({ type: "click", x: c.x, y: c.y });
   });
 
   let resizeTimer = null;

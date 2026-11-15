@@ -43,6 +43,16 @@ Helpers: `mix(c1, c2, t)`, `scale(c, k)`, `hsv(h, s, v)` (h in turns), `gradient
 Scene helpers: `self.rng` (seeded `random.Random`, use it for all randomness so `--seed` works),
 `self.t`, `self.w`, `self.h`, `self.opt(key)`, `self.count(base)`, `self.density`.
 
+## Creatures and the mouse
+
+- `terrarium/shapes.py` has `Body` (build a creature from circles, ovals and tapered capsules;
+  it's shaded dense inside and light on the edges), `Chain` (a spine that follows its head) and
+  `Mover` (wanders in S-curves, seeks a target, flees a threat, slower when far away). See
+  [docs/ANIMALS.md](docs/ANIMALS.md) and `scenes/fishbowl.py`.
+- Mouse: set `interactions = "click to ..."` and implement `on_click(self, x, y)`. Read
+  `self.pointer` (`(x, y)` or `None`) in `update`. Clicks can land anywhere, even off-screen, so
+  never assume they're inside your scene.
+
 ## Rules
 
 - **Cells are about twice as tall as wide.** Multiply y-distances by `ASPECT` for round shapes.

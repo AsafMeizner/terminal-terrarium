@@ -78,6 +78,7 @@ def build_parser():
     g.add_argument("--hud", action="store_true", help="show the info bar (toggle with i)")
     g.add_argument("--no-title", dest="title", action="store_false", help="don't show the scene title card")
     g.add_argument("--no-alt-screen", action="store_true", help="draw in the normal screen buffer")
+    g.add_argument("--no-mouse", action="store_true", help="don't capture the mouse (some scenes react to clicks)")
 
     g = p.add_argument_group("export (png/gif need Pillow)")
     g.add_argument("--snapshot", metavar="FILE", help="render one frame to FILE (.png, .txt or .ans) and exit")
@@ -106,8 +107,10 @@ def _print_list(scenes):
     print(f"{len(scenes)} scenes:\n")
     for name, cls in scenes.items():
         tags = f"  [{', '.join(cls.tags)}]" if cls.tags else ""
-        print(f"  {name:<{width}}{cls.blurb}{tags}")
-    print("\nrun `terrarium --info NAME` for a scene's options, `terrarium --new NAME` to make your own")
+        star = " *" if cls.interactions else "  "
+        print(f"{star}{name:<{width}}{cls.blurb}{tags}")
+    print("\n * reacts to your mouse: click or point at it")
+    print("run `terrarium --info NAME` for a scene's options, `terrarium --new NAME` to make your own")
     dirs = plugin_dirs()
     if dirs:
         print("plugin dirs: " + ", ".join(dirs))
@@ -123,6 +126,8 @@ def _print_info(cls):
     print(f"  {cls.blurb}")
     if cls.tags:
         print(f"  tags: {', '.join(cls.tags)}")
+    if cls.interactions:
+        print(f"  mouse: {cls.interactions}")
     if cls.options:
         print("  options (-o key=value):")
         for k, (default, help_) in cls.options.items():

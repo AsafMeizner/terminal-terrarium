@@ -41,6 +41,7 @@ class Runner:
         return json.dumps({
             "scenes": [
                 {"name": n, "title": c.title or n, "blurb": c.blurb, "tags": list(c.tags),
+                 "interactions": getattr(c, "interactions", ""),
                  "section": _section(c),
                  "options": [{"key": k, "default": _jsonable(d), "type": type(d).__name__, "help": h}
                              for k, (d, h) in c.options.items()]}
@@ -68,6 +69,15 @@ class Runner:
             for _ in range(int(cfg.get("warmup", 0) * 15)):
                 self.scene.update(1 / 15)
         self.cv.ramp = RAMPS[cfg["charset"]]
+
+    def click(self, x, y):
+        if self.scene is not None:
+            self.scene.pointer = (x, y)
+            self.scene.on_click(x, y)
+
+    def point(self, x, y):
+        if self.scene is not None:
+            self.scene.pointer = None if x < 0 else (x, y)
 
     def step(self, dt):
         cfg = self.cfg

@@ -1,64 +1,64 @@
-"""Template written by `terrarium --new NAME`."""
+"""Template written by `terrarium --new NAME`. It's the example from docs/ANIMALS.md."""
 
-TEMPLATE = '''"""{title}: describe your scene here."""
+TEMPLATE = '''"""{title}: a little ASCII animal. Walkthrough: docs/ANIMALS.md in the terrarium repo."""
 import math
 
-from terrarium.engine import ASPECT, Scene, clamp, gradient, hsv, mix, noise2
+from terrarium.engine import ASPECT, Scene, hsv
+from terrarium.shapes import Body, Mover
 
 
 class {cls}(Scene):
     name = "{name}"
     title = "{title}"
-    blurb = "one line describing {name}"
-    tags = ("custom",)
+    blurb = "my own ASCII creatures"
+    tags = ("custom", "creatures")
+    interactions = "click to drop food"
     options = {{
-        "count": (0, "how many things (0 = based on screen size)"),
-        "palette": ("random", "random, warm or cool"),
+        "count": (0, "how many creatures (0 = based on screen size)"),
     }}
 
+    # 1. SETUP: make the creatures. Each one rolls its own "genome" so every run is different.
     def setup(self):
-        """Build state. Runs at start, on resize and when density changes.
-        Roll the *structure* from self.rng so every run looks different."""
         rng = self.rng
-        palette = self.opt("palette")
-        if palette == "random":
-            palette = rng.choice(["warm", "cool"])
-        base = rng.uniform(0.0, 0.15) if palette == "warm" else rng.uniform(0.5, 0.7)
-        n = self.opt("count") or self.count(25)
-        self.things = []
+        n = self.opt("count") or self.count(6)
+        self.critters = []
         for _ in range(n):
-            self.things.append({{
-                "x": rng.uniform(0, self.w),
-                "y": rng.uniform(0, self.h),
-                "r": rng.uniform(1.5, 4.0),           # a little "genome" per object
-                "speed": rng.uniform(0.3, 1.2),
-                "color": hsv(base + rng.uniform(-0.06, 0.06), 0.6, 1.0),
-                "phase": rng.uniform(0, math.tau),
+            depth = rng.random()                          # 0 = far away, 1 = close
+            self.critters.append({{
+                "mover": Mover(rng, rng.uniform(0, self.w), rng.uniform(0, self.h), speed=6, depth=depth),
+                "size": 2 + 3 * depth,                    # far things look smaller...
+                "color": hsv(rng.random(), 0.6, 1.0),
+                "depth": depth,
             }})
+        self.critters.sort(key=lambda c: c["depth"])     # draw far ones first
+        self.food = []
 
+    # 2. INPUT: clicking drops food.
+    def on_click(self, x, y):
+        self.food.append([x, y])
+
+    # 3. MOVE: every creature follows simple rules: wander, but head for the nearest food.
     def update(self, dt):
-        super().update(dt)                             # advances self.t (dt includes --speed)
-        for p in self.things:
-            p["y"] -= p["speed"] * dt
-            if p["y"] < -p["r"]:
-                p["y"] = self.h + p["r"]
-                p["x"] = self.rng.uniform(0, self.w)
+        super().update(dt)
+        for c in self.critters:
+            m = c["mover"]
+            target = min(self.food, key=lambda f: (f[0] - m.x) ** 2 + (f[1] - m.y) ** 2) if self.food else None
+            m.update(dt, self.t, (self.w, self.h), target=target, threat=self.pointer)
+            if target and m.near(target[0], target[1], c["size"]):
+                self.food.remove(target)                  # yum
 
+    # 4. DRAW: each creature is a few round parts. Inside cells get dense characters, edges light ones.
     def draw(self, cv):
-        # faint background gradient
-        for y in range(0, self.h, 2):
-            for x in range(0, self.w, 3):
-                v = 0.06 + 0.06 * noise2(x * 0.05, y * 0.1 + self.t * 0.1)
-                cv.shade(x, y, v, gradient([(20, 30, 60), (60, 40, 90)], y / self.h))
-        # glowing round blobs (ASPECT keeps them round)
-        for p in self.things:
-            pulse = 0.8 + 0.2 * math.sin(self.t * 2 + p["phase"])
-            r = p["r"] * pulse
-            for y in range(int(p["y"] - r / ASPECT) - 1, int(p["y"] + r / ASPECT) + 2):
-                for x in range(int(p["x"] - r) - 1, int(p["x"] + r) + 2):
-                    d = math.hypot(x - p["x"], (y - p["y"]) * ASPECT) / r
-                    if d < 1.3:
-                        cv.shade(x, y, clamp(1.15 - d), mix(p["color"], (255, 255, 255), clamp(0.6 - d)))
+        for f in self.food:
+            cv.put(f[0], f[1], "*", (255, 220, 120))
+        for c in self.critters:
+            m, s = c["mover"], c["size"]
+            dx, dy = math.cos(m.heading), math.sin(m.heading) / ASPECT
+            body = Body()
+            body.capsule(m.x, m.y, m.x - dx * s * 1.8, m.y - dy * s * 1.8, s * 0.6, s * 0.25, color=c["color"])
+            body.circle(m.x - dx * s * 2.0, m.y - dy * s * 2.0, s * 0.35, color=c["color"])   # tail
+            body.spot(m.x + dx * s * 0.25, m.y + dy * s * 0.25 - 0.2, 0.3, (20, 20, 30), "o")  # eye
+            body.draw(cv, depth=c["depth"])               # far = dimmer
 '''
 
 

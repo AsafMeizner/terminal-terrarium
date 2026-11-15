@@ -78,6 +78,24 @@ class SceneTests(unittest.TestCase):
                     pics.add("".join(cv.ch))
                 self.assertGreater(len(pics), 1, "all seeds look identical")
 
+    def test_mouse_never_crashes(self):
+        """Clicks and pointer moves anywhere (even off-screen) must be safe for every scene."""
+        spots = [(0, 0), (40.5, 12.2), (79.9, 23.9), (-5, -5), (200, 90)]
+        for name, cls in all_scenes().items():
+            with self.subTest(scene=name):
+                s = cls(Context(seed=4), 80, 24)
+                cv = Canvas(80, 24)
+                for x, y in spots:
+                    s.pointer = (x, y)
+                    s.on_click(x, y)
+                    s.update(0.1)
+                    cv.clear()
+                    s.draw(cv)
+                s.pointer = None
+                for _ in range(20):
+                    s.update(1 / 30)
+                s.draw(cv)
+
     def test_density_extremes(self):
         for name, cls in all_scenes().items():
             for d in (0.1, 4.0):

@@ -74,6 +74,11 @@ terrarium --info bonsai            # a scene's own options
 
 When you quit, it prints the seed it used. Run with `--seed N` to get that exact variation back.
 
+**Many scenes react to your mouse**, in the terminal and on the website. Feed the fish, launch
+fireworks where you click, scatter the starlings, blow a dandelion. `terrarium --list` marks them
+with `*`, and `terrarium --info NAME` says what to do. Use `--no-mouse` if you'd rather it left
+your mouse alone.
+
 ### Keys while it runs
 
 | key | | key | |
@@ -101,7 +106,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 | `--duration SECS` | quit after a while (nice in a shell startup file) |
 | `--message TEXT` | a caption in the middle of the screen |
 | `--color auto\|truecolor\|256\|mono` | force a color mode |
-| `--hud`, `--no-title`, `--no-alt-screen` | interface bits |
+| `--hud`, `--no-title`, `--no-alt-screen`, `--no-mouse` | interface bits |
 | `--snapshot FILE` | render one frame to `.png`, `.txt` or `.ans` |
 | `--record FILE.gif` | record a GIF (`--size WxH`, `--frames N`, `--warmup SECS`, `--font`, `--font-size`) |
 | `--new NAME`, `--path DIR` | make your own scene / load scenes from a folder |
@@ -110,7 +115,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 
 <!-- scenes:start -->
 
-**43 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**44 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -137,6 +142,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 | | scene | |
 |---|---|---|
 | <img src="docs/screenshots/butterflies.png" width="300" alt="butterflies"> | **`butterflies`** | big patterned butterflies and moths flutter through a night garden and rest on flowers<br><sub>options: `count`, `family`, `flowers`, `trail`</sub> |
+| <img src="docs/screenshots/fishbowl.png" width="300" alt="fishbowl"> | **`fishbowl`** | goldfish drifting in a glass bowl; feed them and they come to eat<br><sub>options: `fish`, `bowl`</sub> |
 | <img src="docs/screenshots/murmuration.png" width="300" alt="murmuration"> | **`murmuration`** | a starling murmuration swirls over a sunset lake, bending around a diving falcon<br><sub>options: `birds`, `predator`, `palette`</sub> |
 | <img src="docs/screenshots/peacock.png" width="300" alt="peacock"> | **`peacock`** | a peacock struts, then fans its train into a full shimmering display of eyespots<br><sub>options: `interval`, `palette`</sub> |
 | <img src="docs/screenshots/seascape.png" width="300" alt="seascape"> | **`seascape`** | a cross-section of the sea: boats and leaping dolphins above, fish and kelp below<br><sub>options: `time`, `boats`, `dolphins`, `fish`</sub> |
@@ -193,6 +199,11 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 <!-- scenes:end -->
 
 ### Make your own scene
+
+**New to this? Start with [Make your own ASCII animal](docs/ANIMALS.md),** a 5-minute walkthrough
+for non-programmers: grid of cells, move, draw, fake depth. It uses the creature toolkit in
+`terrarium/shapes.py` (build an animal from round parts, then make it wander, chase food and
+flee the mouse).
 
 A scene is one Python file. Generate a working template, then edit it:
 

@@ -54,7 +54,8 @@ class App:
         self.scene = cls(ctx, w, h)
         self.scene_started = time.perf_counter()
         if self.args.title:
-            self.notify([cls.title or cls.name, cls.blurb], 3.5)
+            hint = f"({cls.interactions})" if cls.interactions and not self.args.no_mouse else ""
+            self.notify([cls.title or cls.name, cls.blurb, hint], 4.0 if hint else 3.5)
 
     def notify(self, lines, secs=2.0):
         self.toast = ([l for l in lines if l], time.perf_counter() + secs)
@@ -137,7 +138,7 @@ class App:
     # ------------------------------------------------------------------ main loop
     def run(self):
         args = self.args
-        term = Terminal(alt_screen=not args.no_alt_screen)
+        term = Terminal(alt_screen=not args.no_alt_screen, mouse=not args.no_mouse)
         keys = Keys()
         self.renderer = Renderer(term.write, args.color, self.fx)
         frame = 1.0 / max(1, args.fps)
@@ -164,7 +165,12 @@ class App:
                     self.renderer.reset()
 
                 for k in keys.read():
-                    if not self.handle(k):
+                    if isinstance(k, tuple):  # mouse: ("click" | "move", x, y)
+                        kind, mx, my = k
+                        self.scene.pointer = (mx + 0.5, my + 0.5)
+                        if kind == "click" and not self.show_help:
+                            self.scene.on_click(mx + 0.5, my + 0.5)
+                    elif not self.handle(k):
                         return
                 if not self.paused:
                     self.scene.update(dt * self.speed)

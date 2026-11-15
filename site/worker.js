@@ -59,13 +59,19 @@ function tick() {
   busy = false;
 }
 
+let lastCfg = {};
+function paused() { return !!lastCfg.paused; }
+
 function start() { stop(); last = 0; timer = setInterval(tick, 1000 / fps); }
 function stop() { if (timer) clearInterval(timer); timer = null; }
 
 self.onmessage = (e) => {
   const msg = e.data;
+  if (msg.type === "click" && runner) { try { runner.click(msg.x, msg.y); if (paused()) tick(); } catch (err) { post({ type: "error", text: String(err) }); } return; }
+  if (msg.type === "point" && runner) { try { runner.point(msg.x, msg.y); } catch (err) { /* ignore */ } return; }
   if (msg.type === "configure" && runner) {
     try {
+      lastCfg = msg.cfg;
       fps = Math.max(5, Math.min(60, msg.cfg.fps || 30));
       runner.configure(JSON.stringify(msg.cfg));
       if (!timer || msg.restartClock) start();
