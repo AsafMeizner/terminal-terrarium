@@ -24,6 +24,9 @@ This repo has two parts:
   <img src="docs/gifs/koi.gif" width="32%" alt="koi pond">
   <img src="docs/gifs/butterflies.gif" width="32%" alt="butterflies">
   <img src="docs/gifs/campfire.gif" width="32%" alt="campfire">
+  <img src="docs/gifs/fireworks.gif" width="32%" alt="fireworks">
+  <img src="docs/gifs/lanterns.gif" width="32%" alt="sky lanterns">
+  <img src="docs/gifs/lavalamp.gif" width="32%" alt="lava lamp">
 </p>
 
 > The previews are rendered straight from the code with `--record`, at a small size. In a real
@@ -103,7 +106,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 
 <!-- scenes:start -->
 
-**32 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**34 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -137,6 +140,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 |---|---|---|
 | <img src="docs/screenshots/jellyfish.png" width="300" alt="jellyfish"> | **`jellyfish`** | bioluminescent jellyfish pulsing through deep water<br><sub>options: `count`, `palette`, `snow`, `rays`</sub> |
 | <img src="docs/screenshots/koi.png" width="300" alt="koi"> | **`koi`** | koi winding under lily pads and lotus flowers, ripples spreading on the water<br><sub>options: `fish`, `pads`, `ripples`</sub> |
+| <img src="docs/screenshots/lanterns.png" width="300" alt="lanterns"> | **`lanterns`** | paper sky lanterns rising over a calm lake at night, glowing in the water<br><sub>options: `count`, `wind`, `colors`, `moon`</sub> |
 | <img src="docs/screenshots/ocean.png" width="300" alt="ocean"> | **`ocean`** | a glowing sun on the horizon of a rolling sea<br><sub>options: `time`, `waves`, `gulls`</sub> |
 | <img src="docs/screenshots/whale.png" width="300" alt="whale"> | **`whale`** | a giant humpback whale gliding through deep blue water (or through space)<br><sub>options: `calf`, `space`, `rays`</sub> |
 
@@ -156,6 +160,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 | <img src="docs/screenshots/aurora.png" width="300" alt="aurora"> | **`aurora`** | northern lights rippling over dark mountains and a still lake<br><sub>options: `intensity`, `colors`, `reflection`, `curtains`</sub> |
 | <img src="docs/screenshots/campfire.png" width="300" alt="campfire"> | **`campfire`** | a crackling campfire under the stars, with sparks and drifting smoke<br><sub>options: `size`, `sparks`, `wind`, `palette`</sub> |
 | <img src="docs/screenshots/fireflies.png" width="300" alt="fireflies"> | **`fireflies`** | fireflies blinking over a summer meadow at the edge of a forest<br><sub>options: `count`, `color`</sub> |
+| <img src="docs/screenshots/fireworks.png" width="300" alt="fireworks"> | **`fireworks`** | a fireworks show over a lake or a harbour city, with smoke, reflections and a finale<br><sub>options: `intensity`, `finale`, `backdrop`, `palette`</sub> |
 | <img src="docs/screenshots/rain.png" width="300" alt="rain"> | **`rain`** | night rain over a city, with splashes, ripples and lightning<br><sub>options: `intensity`, `wind`, `lightning`, `skyline`</sub> |
 | <img src="docs/screenshots/skyline.png" width="300" alt="skyline"> | **`skyline`** | a city skyline time-lapse: day to night, windows lighting up, traffic streaming below<br><sub>options: `cycle`, `density`, `start`, `clouds`</sub> |
 | <img src="docs/screenshots/snow.png" width="300" alt="snow"> | **`snow`** | snow falling softly over moonlit hills and a cabin with a warm window<br><sub>options: `amount`, `wind`, `cabin`</sub> |

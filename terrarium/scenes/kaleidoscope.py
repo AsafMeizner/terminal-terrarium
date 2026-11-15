@@ -376,14 +376,14 @@ class Kaleidoscope(Scene):
                     white = max(white, cg * 0.8)
                     hue = ringhue
                 val *= env
-                if val < 0.07:
+                if val < 0.11:
                     ach(" ")
                     afg(None)
                     alv(0.0)
                     continue
                 if val > 1.0:
                     val = 1.0
-                val = val ** 0.72
+                val = val ** 0.8
                 c = lut[int((hue + hue_t) * LUT_N) % LUT_N]
                 if white > 0:
                     c = mix(c, WHITE, white if white < 1.0 else 1.0)
