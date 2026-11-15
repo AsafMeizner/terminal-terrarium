@@ -6,3 +6,8 @@ dist/
 .venv/
 *.png
 !docs/**/*.png
+site/bundle.json
+.vercel
+.playwright-mcp/
+
+.vercel

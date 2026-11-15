@@ -1,0 +1,268 @@
+:root {
+  --pond: #0d1b1f;      /* page */
+  --glass-in: #070f12;  /* inside the tank, the art's background */
+  --glass: #d7e6e2;     /* text */
+  --lichen: #86a39e;    /* secondary text */
+  --moss: #2b4a46;      /* control surfaces, borders */
+  --brass: #c8a35a;     /* the one accent: frame, focus, active */
+  --ui: "Recursive", ui-sans-serif, system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --panel-w: 320px;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--pond); color: var(--glass); }
+
+body {
+  margin: 0;
+  font-family: var(--ui);
+  font-variation-settings: "CASL" 0.6;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a { color: var(--brass); text-underline-offset: 3px; }
+a:hover { color: var(--glass); }
+
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+/* ------------------------------------------------------------------ layout */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  gap: 20px;
+  padding: 20px;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 560px;
+}
+
+.tank-wrap {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ the tank */
+.tank {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-in);
+  border: 1px solid color-mix(in srgb, var(--brass) 55%, transparent);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 0 0 4px var(--glass-in),
+    inset 0 0 0 5px color-mix(in srgb, var(--brass) 18%, transparent),
+    inset 0 40px 80px -60px rgba(200, 230, 255, 0.10);
+  min-height: 300px;
+}
+
+.tank canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+
+.tank-label {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 12px 7px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--glass-in) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brass) 30%, transparent);
+  border-radius: 8px;
+  backdrop-filter: blur(3px);
+}
+.tank-label h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  font-variation-settings: "CASL" 1;
+  color: var(--brass);
+  letter-spacing: 0.01em;
+}
+.tank-label p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--lichen);
+}
+
+.tank-tools {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.tank:hover .tank-tools,
+.tank:focus-within .tank-tools,
+.tank.paused .tank-tools { opacity: 1; }
+
+.status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 2rem;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--lichen);
+  text-align: center;
+  white-space: pre-wrap;
+}
+.status[hidden] { display: none; }
+.status.error { color: #e8a28f; }
+
+.tank:fullscreen { border-radius: 0; border: 0; }
+
+/* ------------------------------------------------------------------ command strip */
+.command-hint { margin: 0 0 4px; font-size: 13px; color: var(--lichen); }
+
+.command-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+.command-row code {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  background: var(--glass-in);
+  border: 1px solid var(--moss);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--glass);
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.command-row code::before { content: "$ "; color: var(--brass); }
+
+/* ------------------------------------------------------------------ panel */
+.panel {
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--moss) transparent;
+}
+
+.group {
+  padding: 14px 0 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--moss) 70%, transparent);
+}
+.group:first-child { padding-top: 0; }
+.group:last-child { border-bottom: 0; }
+
+.group h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 650;
+  font-variation-settings: "CASL" 1;
+}
+
+label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: var(--lichen);
+}
+.group > label:first-child { margin-top: 0; }
+label output { color: var(--glass); font-variant-numeric: tabular-nums; }
+label.check { justify-content: flex-start; gap: 8px; color: var(--glass); cursor: pointer; }
+
+.row { display: flex; gap: 6px; }
+.row select, .row input { flex: 1; min-width: 0; }
+
+select, input[type="number"], input[type="text"] {
+  width: 100%;
+  padding: 7px 9px;
+  background: var(--glass-in);
+  color: var(--glass);
+  border: 1px solid var(--moss);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 14px;
+}
+select:hover, input[type="number"]:hover, input[type="text"]:hover { border-color: var(--lichen); }
+
+input[type="range"] { width: 100%; accent-color: var(--brass); }
+input[type="checkbox"] { accent-color: var(--brass); width: 16px; height: 16px; }
+
+button {
+  padding: 7px 12px;
+  background: var(--moss);
+  color: var(--glass);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button:hover { background: color-mix(in srgb, var(--moss) 70%, var(--lichen)); }
+button:active { transform: translateY(1px); }
+button.icon { padding: 4px 11px; font-size: 18px; line-height: 1; }
+button.quiet {
+  margin-top: 10px;
+  background: transparent;
+  border-color: var(--moss);
+  color: var(--lichen);
+}
+button.quiet:hover { color: var(--glass); border-color: var(--lichen); }
+button.copy.done { background: var(--brass); color: var(--glass-in); }
+.tank-tools button { background: color-mix(in srgb, var(--glass-in) 80%, transparent); border-color: var(--moss); }
+
+.blurb { margin: 8px 0 0; color: var(--glass); }
+.hint { margin: 8px 0 0; font-size: 12.5px; color: var(--lichen); }
+.keys { margin-top: 12px; }
+
+#options:empty::after { content: "This scene has no extra settings."; font-size: 13px; color: var(--lichen); }
+
+/* ------------------------------------------------------------------ about */
+.about {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px;
+  max-width: 1100px;
+  padding: 36px 20px 60px;
+}
+.about-col { min-width: 0; }
+.about h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 650;
+  font-variation-settings: "CASL" 1;
+}
+.about p { max-width: 62ch; color: color-mix(in srgb, var(--glass) 85%, var(--lichen)); }
+.about p code { font-family: var(--mono); font-size: 13px; color: var(--glass); }
+.about .command-row { max-width: 62ch; }
+
+/* ------------------------------------------------------------------ small screens */
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+  .tank-wrap { grid-template-rows: auto auto; }
+  .tank { height: 62vh; }
+  .panel { overflow: visible; padding-right: 0; }
+  .tank-tools { opacity: 1; }
+  .about { grid-template-columns: 1fr; gap: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tank-tools { transition: none; }
+}

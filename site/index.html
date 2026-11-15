@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>terminal-terrarium: living ASCII art, live in your browser</title>
+  <meta name="description" content="43 procedural ASCII-art scenes (jellyfish, lily bouquets, bonsai, whales, a city time-lapse) running live from the real Python package. Change any setting, then run it in your terminal.">
+  <meta property="og:title" content="terminal-terrarium">
+  <meta property="og:description" content="Living ASCII art for your terminal, playable in the browser.">
+  <meta property="og:image" content="https://raw.githubusercontent.com/AsafMeizner/terminal-terrarium/main/docs/screenshots/jellyfish.png">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪼</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Recursive:slnt,wght,CASL@-15..0,300..800,0..1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="layout">
+    <section class="tank-wrap" aria-label="Live scene">
+      <div class="tank" id="tank">
+        <canvas id="art" aria-label="Animated ASCII art"></canvas>
+        <div class="tank-label">
+          <h1>terminal-terrarium</h1>
+          <p id="scene-title">Loading…</p>
+        </div>
+        <div class="tank-tools">
+          <button id="btn-pause" type="button" title="Pause (space)">Pause</button>
+          <button id="btn-full" type="button" title="Fullscreen (f)">Fullscreen</button>
+        </div>
+        <p class="status" id="status" role="status">Loading Python in your browser…</p>
+      </div>
+      <div class="command" aria-label="Run this in your terminal">
+        <p class="command-hint">This exact scene in your terminal:</p>
+        <div class="command-row">
+          <code id="cli">terrarium</code>
+          <button type="button" class="copy" data-copy="cli">Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Settings">
+      <div class="group">
+        <label for="scene">Scene</label>
+        <div class="row">
+          <button type="button" id="prev" class="icon" title="Previous scene (p)" aria-label="Previous scene">‹</button>
+          <select id="scene"></select>
+          <button type="button" id="next" class="icon" title="Next scene (n)" aria-label="Next scene">›</button>
+        </div>
+        <p class="blurb" id="blurb"></p>
+        <button type="button" id="shuffle" class="quiet">Surprise me</button>
+      </div>
+
+      <div class="group">
+        <label for="seed">Variation</label>
+        <div class="row">
+          <input id="seed" type="number" min="0" step="1">
+          <button type="button" id="reroll" title="New variation (r)">New variation</button>
+        </div>
+        <p class="hint">Same number, same picture. Every number grows something different.</p>
+      </div>
+
+      <div class="group">
+        <h2>Look</h2>
+        <label for="theme">Theme</label>
+        <select id="theme"></select>
+        <label for="charset">Characters</label>
+        <select id="charset"></select>
+        <label for="hue">Hue shift <output for="hue" id="hue-out"></output></label>
+        <input id="hue" type="range" min="0" max="345" step="15">
+        <label for="saturation">Saturation <output for="saturation" id="saturation-out"></output></label>
+        <input id="saturation" type="range" min="0" max="2" step="0.05">
+        <label for="brightness">Brightness <output for="brightness" id="brightness-out"></output></label>
+        <input id="brightness" type="range" min="0.4" max="1.8" step="0.05">
+        <label class="check"><input id="bloom" type="checkbox" checked> Phosphor glow</label>
+      </div>
+
+      <div class="group">
+        <h2>Motion</h2>
+        <label for="speed">Speed <output for="speed" id="speed-out"></output></label>
+        <input id="speed" type="range" min="0.1" max="4" step="0.05">
+        <label for="density">Amount <output for="density" id="density-out"></output></label>
+        <input id="density" type="range" min="0.2" max="3" step="0.05">
+        <label for="cols">Detail <output for="cols" id="cols-out"></output></label>
+        <input id="cols" type="range" min="36" max="220" step="2">
+        <p class="hint">Detail is the number of columns. More columns means smaller characters and more work per frame.</p>
+      </div>
+
+      <div class="group" id="options-group">
+        <h2>This scene</h2>
+        <div id="options"></div>
+        <button type="button" id="reset-options" class="quiet">Reset scene settings</button>
+      </div>
+
+      <div class="group">
+        <button type="button" id="share" class="quiet">Copy link to this setup</button>
+        <p class="hint keys">Keys: space pause, n / p scene, r variation, t theme, c characters, f fullscreen.</p>
+        <p class="hint" id="perf"></p>
+      </div>
+    </aside>
+  </main>
+
+  <section class="about">
+    <div class="about-col">
+      <h2>Run it in your terminal</h2>
+      <p>Every scene above is the real Python package, running in your browser through Pyodide. At home it needs Python 3.9+ and nothing else.</p>
+      <div class="command-row">
+        <code id="install">pipx install git+https://github.com/AsafMeizner/terminal-terrarium</code>
+        <button type="button" class="copy" data-copy="install">Copy</button>
+      </div>
+      <p>Then try <code>terrarium --all --shuffle --cycle 30</code> for screensaver mode, or <code>terrarium --new my_scene</code> to start your own scene.</p>
+    </div>
+    <div class="about-col">
+      <h2>What this is</h2>
+      <p>A terrarium of procedural ASCII art: jellyfish, a lily bouquet, bonsai that grow, a tree's whole life in time-lapse, a city from dusk to dawn, a volcano, whales and more. Each scene rolls its own shapes, palettes and layout from the variation number, so no two runs are alike.</p>
+      <p><a href="https://github.com/AsafMeizner/terminal-terrarium">Source, docs and a collection of the best terminal animations by others</a> on GitHub. Inspired by <a href="https://www.instagram.com/reel/De1IvFqSihx/">@arimecoa's ASCII lily bouquet</a>.</p>
+    </div>
+  </section>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

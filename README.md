@@ -4,6 +4,10 @@
 die in time-lapse, whales, koi, a city skyline from dusk to dawn, a volcano, aurora and more.
 Every scene is procedurally generated, so no two runs look the same.
 
+**▶ Play with every scene live in your browser: [terminal-terrarium.vercel.app](https://terminal-terrarium.vercel.app)**
+(it runs the real Python package via Pyodide, so you can change the theme, characters, speed, variation
+and every scene option, then copy the matching `terrarium` command).
+
 This repo has two parts:
 
 1. **[`terrarium`](#the-package-terrarium)**: one zero-dependency Python package with dozens of
@@ -206,6 +210,13 @@ seeded randomness, roll the *structure* so every run looks different), and how t
 To contribute a scene back, put the file in `terrarium/scenes/`, run
 `python scripts/make_gifs.py NAME` for a screenshot and `python scripts/update_readme.py` to add it
 to the list above, then open a PR. CI runs the tests on Windows, macOS and Linux.
+
+### The web playground
+
+`site/` is a static page that runs this package in the browser through
+[Pyodide](https://pyodide.org) in a Web Worker and draws frames on a canvas. `node scripts/build-site.mjs`
+bundles the Python sources into `site/bundle.json`; Vercel runs that as its build step
+(`vercel.json`). To try it locally: `node scripts/build-site.mjs && python -m http.server -d site`.
 
 ### How it works
 
