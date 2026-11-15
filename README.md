@@ -106,7 +106,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 
 <!-- scenes:start -->
 
-**34 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**37 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -142,6 +142,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 | <img src="docs/screenshots/koi.png" width="300" alt="koi"> | **`koi`** | koi winding under lily pads and lotus flowers, ripples spreading on the water<br><sub>options: `fish`, `pads`, `ripples`</sub> |
 | <img src="docs/screenshots/lanterns.png" width="300" alt="lanterns"> | **`lanterns`** | paper sky lanterns rising over a calm lake at night, glowing in the water<br><sub>options: `count`, `wind`, `colors`, `moon`</sub> |
 | <img src="docs/screenshots/ocean.png" width="300" alt="ocean"> | **`ocean`** | a glowing sun on the horizon of a rolling sea<br><sub>options: `time`, `waves`, `gulls`</sub> |
+| <img src="docs/screenshots/reef.png" width="300" alt="reef"> | **`reef`** | a vibrant coral reef: flocking tropical fish, swaying anemones, a gliding sea turtle<br><sub>options: `fish`, `turtle`</sub> |
 | <img src="docs/screenshots/whale.png" width="300" alt="whale"> | **`whale`** | a giant humpback whale gliding through deep blue water (or through space)<br><sub>options: `calf`, `space`, `rays`</sub> |
 
 ### Space
@@ -158,7 +159,9 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 | | scene | |
 |---|---|---|
 | <img src="docs/screenshots/aurora.png" width="300" alt="aurora"> | **`aurora`** | northern lights rippling over dark mountains and a still lake<br><sub>options: `intensity`, `colors`, `reflection`, `curtains`</sub> |
+| <img src="docs/screenshots/balloons.png" width="300" alt="balloons"> | **`balloons`** | hot air balloons rising over a misty valley at sunrise, burners flaring<br><sub>options: `count`, `time`</sub> |
 | <img src="docs/screenshots/campfire.png" width="300" alt="campfire"> | **`campfire`** | a crackling campfire under the stars, with sparks and drifting smoke<br><sub>options: `size`, `sparks`, `wind`, `palette`</sub> |
+| <img src="docs/screenshots/desert.png" width="300" alt="desert"> | **`desert`** | sand streaming off dunes, saguaros, a camel caravan, sunset into a milky-way night<br><sub>options: `cycle`, `time`, `caravan`</sub> |
 | <img src="docs/screenshots/fireflies.png" width="300" alt="fireflies"> | **`fireflies`** | fireflies blinking over a summer meadow at the edge of a forest<br><sub>options: `count`, `color`</sub> |
 | <img src="docs/screenshots/fireworks.png" width="300" alt="fireworks"> | **`fireworks`** | a fireworks show over a lake or a harbour city, with smoke, reflections and a finale<br><sub>options: `intensity`, `finale`, `backdrop`, `palette`</sub> |
 | <img src="docs/screenshots/rain.png" width="300" alt="rain"> | **`rain`** | night rain over a city, with splashes, ripples and lightning<br><sub>options: `intensity`, `wind`, `lightning`, `skyline`</sub> |

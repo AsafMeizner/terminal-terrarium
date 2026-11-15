@@ -740,7 +740,7 @@ class Timelapse(Scene):
         self.pole = (w * rng.uniform(0.2, 0.8), -h * 0.3)
         self.clouds = [self.make_cloud(rng.uniform(-10, w + 10)) for _ in range(max(1, int((2 + w / 40) * self.cloudy)))]
         # -- ground life
-        self.bh = [rng.uniform(0.3, 2.3) if rng.random() < 0.85 else 0.0 for _ in range(w)]
+        self.bh = [rng.uniform(0.3, 2.2) if rng.random() < 0.6 else 0.0 for _ in range(w)]
         self.bph = [rng.uniform(0, TAU) for _ in range(w)]
         self.bhue = [rng.random() for _ in range(w)]
         self.flowers = []
@@ -789,11 +789,12 @@ class Timelapse(Scene):
                     d = y - gyi
                     if d == 0:
                         ch, _ = edge_glyph(gy, self.gy[max(0, x - 1)], self.gy[min(w - 1, x + 1)])
-                        fixed[i] = '"' if ch in "-_'" and hsh(x, y, s + 5) < 0.5 else ch if ch in "/\\" else "'"
+                        r5 = hsh(x, y, s + 5)
+                        fixed[i] = ch if ch in "/\\" else "'" if r5 < 0.45 else "," if r5 < 0.75 else "." if r5 < 0.9 else '"'
                         cls[i] = self.GE
                         continue
                     band = 0 if d <= 2 else 1 if d <= 4 else 2 if d <= 7 else 3
-                    dens = (0.85, 0.6, 0.4, 0.26)[band]
+                    dens = (0.55, 0.32, 0.2, 0.12)[band]
                     if hsh(x, y, s) < dens:
                         k = hsh(y * 3, x, s + 1)
                         fixed[i] = ('"' if k < 0.3 else "'" if k < 0.55 else "," if k < 0.8 else ";") if band < 2 else                             ("," if k < 0.4 else "." if k < 0.85 else ":")
@@ -811,7 +812,7 @@ class Timelapse(Scene):
         # a ragged line of distant conifers along the near ridge
         for x in range(w):
             y = int(self.r2[x]) - 1
-            if 0 <= y < h and y < int(self.gy[x]) and hsh(x, 99, s) < 0.55:
+            if 0 <= y < h and y < int(self.gy[x]) and hsh(x, 99, s) < 0.3:
                 i = y * w + x
                 fixed[i] = "^" if hsh(x, 98, s) < 0.75 else "A"
                 level[i] = 0.0
@@ -835,15 +836,15 @@ class Timelapse(Scene):
                 r = hsh(i, 3, 5)
                 if ascii_ramp:
                     if lev >= 0.26:   # near ridge: a distant forest of tiny conifers
-                        out[i] = "^" if r < 0.22 else "A" if r < 0.3 else "!" if r < 0.42 else ":" if r < 0.7 else "."
+                        out[i] = "^" if r < 0.07 else "A" if r < 0.09 else ":" if r < 0.2 else "." if r < 0.38 else " "
                     else:             # far ridge: blue haze
-                        out[i] = ":" if r < lev * 1.6 else "." if r < lev * 3.4 else "'" if r < lev * 3.7 else " "
+                        out[i] = ":" if r < lev * 0.7 else "." if r < lev * 2.2 else " "
                 else:
                     out[i] = ramp[max(1, min(nr, int(lev * nr + r - 0.3)))]
         B = k / 5
         sr = SKY_RAMP
         for i, f, streak, r in self.bg_sky:
-            lev = B * (0.08 + 0.5 * f ** 2.2) + 0.05 + 0.18 * streak * (0.2 + B)
+            lev = B * (0.04 + 0.36 * f ** 2.4) + 0.03 + 0.1 * streak * (0.2 + B)
             j = int(lev * 3 + r - 0.5)
             if j > 0:
                 out[i] = sr[min(3, j)]
@@ -1166,11 +1167,11 @@ class Timelapse(Scene):
         snow = sea["snow"]
         far = mix(hor, mul(self.far_col, L), 0.55)
         P[self.FE] = qc(mix(mix(far, hor, 0.35), mul(SNOW, L), 0.5 * snow))
-        P[self.FF] = qc(scale(far, 0.6))
-        P[self.FF2] = qc(scale(far, 0.42))
+        P[self.FF] = qc(scale(far, 0.45))
+        P[self.FF2] = qc(scale(far, 0.32))
         near = mix(mul(self.near_col, L), hor, 0.15)
         P[self.NE] = qc(mix(scale(near, 1.3), mul(SNOW, L), 0.6 * snow))
-        P[self.NF] = qc(scale(near, 0.95))
+        P[self.NF] = qc(scale(near, 0.65))
         P[self.NT] = qc(mix(scale(near, 1.1), mul(SNOW, L), 0.3 * snow))
         g0, g1, g2 = self.grass
         gs = mix(mix(g0, g1, 1 - sea["spring"]), g2, sea["autumn"])
@@ -1180,8 +1181,8 @@ class Timelapse(Scene):
         for band in range(4):
             f = band / 3
             c = mix(mix(gs, SNOW, snow * (1 - f * 0.7)), deep, 0.25 + 0.6 * f)
-            P[self.G0 + band * 2] = qc(mul(scale(c, 0.85 - 0.35 * f), L))
-            P[self.G0 + band * 2 + 1] = qc(mul(scale(mix(c, (110, 90, 50), 0.3), 0.75 - 0.3 * f), L))
+            P[self.G0 + band * 2] = qc(mul(scale(c, 0.62 - 0.3 * f), L))
+            P[self.G0 + band * 2 + 1] = qc(mul(scale(mix(c, (110, 90, 50), 0.3), 0.55 - 0.25 * f), L))
         P1 = list(P)
         P2 = list(P)
         for k in range(self.FE, NS):
