@@ -51,6 +51,7 @@ class Reef(Scene):
     title = "Coral Reef"
     blurb = "a vibrant coral reef: flocking tropical fish, swaying anemones, a gliding sea turtle"
     tags = ("ocean", "nature", "colorful", "calm")
+    interactions = "click to sprinkle food for the schools, point to scatter the fish"
     options = {
         "fish": (1.0, "amount of fish (multiplier)"),
         "turtle": (True, "a sea turtle glides by now and then"),
@@ -114,6 +115,18 @@ class Reef(Scene):
                      for _ in range(int(w * h / 70 * self.density))]
         self.turtle = None
         self.turtle_wait = rng.uniform(4, 14)
+        self.food = []      # sinking flakes: [x, y, phase, age]
+
+    def on_click(self, x, y):
+        w = self.w
+        rng = self.rng
+        x = clamp(x, 0.0, w - 1.0)
+        floor = self.ground(x) - 1
+        y = clamp(y, self.surface + 1.0, max(self.surface + 1.0, floor))
+        for _ in range(rng.randint(6, 9)):
+            self.food.append([clamp(x + rng.uniform(-3, 3), 0, w - 1), y + rng.uniform(-1, 1),
+                              rng.uniform(0, TAU), 0.0])
+        self.food = self.food[-60:]
 
     # -- static layers ------------------------------------------------------------------
     def build_water(self):
@@ -352,6 +365,13 @@ class Reef(Scene):
         rng = self.rng
         w, h = self.w, self.h
         t = self.t
+        for f in self.food:
+            f[3] += dt
+            bed = self.ground(f[0]) - 0.5
+            if f[1] < bed:
+                f[1] = min(bed, f[1] + dt * 1.1)
+                f[0] = clamp(f[0] + math.sin(t * 1.5 + f[2]) * dt * 0.7, 0, w - 1)
+        self.food = [f for f in self.food if f[3] < 40]
         for sc in self.schools:
             self.flock(sc, dt, t)
         for c in self.clowns:
@@ -398,6 +418,8 @@ class Reef(Scene):
         gx = w * 0.5 + w * 0.6 * math.sin(t * sc["wx"] + sc["ph"])
         gy = sc["band"] + h * 0.12 * math.sin(t * sc["wy"] + sc["ph"] * 2)
         R2 = 64.0
+        food = self.food
+        ptr = self.pointer
         blen = len(sc["tmpl"][0]) + 1.5
         n = len(fish)
         for i in range(n):
@@ -428,6 +450,26 @@ class Reef(Scene):
                 accy += cy / cnt / ASPECT * 0.25 + (ay_ / cnt - vy) * 0.6 + sy * 1.5
             accx += math.sin(t * 0.9 + f[5]) * 1.5
             accy += math.cos(t * 0.7 + f[5] * 1.3) * 0.6
+            cap = speed
+            if food:
+                # food! each fish darts for its nearest flake and snaps it up
+                fd = min(food, key=lambda q: (q[0] - x) ** 2 + ((q[1] - y) * ASPECT) ** 2)
+                dx, dy = fd[0] - x, fd[1] - y
+                if abs(dx) < 1.5 and abs(dy) < 0.8:
+                    food.remove(fd)
+                    self.bubbles.append([x, y - 0.5, f[5], 0.0])
+                else:
+                    accx += dx * 0.9 - vx * 0.4
+                    accy += dy * 1.6 - vy * 0.4
+                    cap = speed * 1.3
+            if ptr is not None:
+                dx, dy = x - ptr[0], (y - ptr[1]) * ASPECT
+                d = math.hypot(dx, dy)
+                if d < 14:
+                    k = (14 - d) * 9.0 / max(d, 0.5)
+                    accx += dx * k
+                    accy += dy * k / ASPECT
+                    cap = speed * 2.2
             bed = self.ground(x)
             if y < 3:
                 accy += (3 - y) * 4
@@ -436,14 +478,14 @@ class Reef(Scene):
             vx += accx * dt
             vy += accy * dt
             sp = math.sqrt(vx * vx + vy * vy)
-            if sp > speed:
-                vx *= speed / sp
-                vy *= speed / sp
+            if sp > cap:
+                vx *= cap / sp
+                vy *= cap / sp
             elif sp < speed * 0.3:
                 k = speed * 0.3 / max(sp, 1e-3)
                 vx *= k
                 vy *= k
-            vy = clamp(vy, -speed * 0.35, speed * 0.35)
+            vy = clamp(vy, -cap * 0.45, cap * 0.45)
             f[0] = x + vx * dt
             f[1] = y + vy * dt
             f[2], f[3] = vx, vy
@@ -483,6 +525,13 @@ class Reef(Scene):
             ch[i] = c
             fg[i] = col
             lv[i] = 0.8
+        for x, y, ph, age in self.food:
+            xi, yi = int(x), int(y)
+            if 0 <= xi < w and 0 <= yi < h:
+                i = yi * w + xi
+                ch[i] = "*" if math.sin(t * 4 + ph) > 0 else "+"
+                fg[i] = qc(scale((255, 215, 140), clamp((40 - age) / 6, 0.3, 1.0)))
+                lv[i] = 0.9
         for sc in self.schools:
             self.draw_school(cv, sc)
         if self.turtle:

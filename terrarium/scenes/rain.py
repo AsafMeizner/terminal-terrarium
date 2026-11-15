@@ -17,6 +17,7 @@ class Rain(Scene):
     title = "Rain"
     blurb = "night rain over a city, with splashes, ripples and lightning"
     tags = ("night", "weather", "city", "moody")
+    interactions = "click to call down lightning right there"
     options = {
         "intensity": (1.0, "how hard it rains (0.2 .. 3)"),
         "wind": ("random", "slant of the rain, -1 .. 1 (or random)"),
@@ -58,6 +59,44 @@ class Rain(Scene):
         self.bolt_t = 0.0
         self.next_strike = self.strike_delay()
         self._bgkey = None
+        self.sparks = []      # embers where a clicked bolt hits a roof or tree: [x, y, vx, vy, life]
+
+    def on_click(self, x, y):
+        rng, w, h, gy = self.rng, self.w, self.h, self.gy
+        tx = clamp(x, 0.0, w - 1.0)
+        roof = self.top[int(tx)] if self.skyline != "none" else gy
+        if y < roof:
+            end, wet = float(roof), roof >= gy        # hits the rooftop / treetop under the click
+        else:
+            end, wet = clamp(y, gy + 0.5, h - 1.0), True   # all the way down to the street
+        # a jagged walk from the top of the sky, bent so it lands exactly on the target
+        pts = [(tx + rng.uniform(-8, 8), 0.0)]
+        while pts[-1][1] < end and len(pts) < 300:
+            px, py = pts[-1]
+            pts.append((px + rng.choice((-1, -1, 0, 1, 1)) * rng.uniform(0.4, self.zig), py + rng.uniform(0.6, 1.4)))
+        err = tx - pts[-1][0]
+        last = max(1e-6, pts[-1][1])
+        pts = [(px + err * py / last, min(py, end)) for px, py in pts]
+        segs = []
+        for i in range(len(pts) - 1):
+            (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+            segs.append((x0, y0, x1, y1, 1.0))
+            if rng.random() < self.branch_p * 1.5 and len(segs) < 500:
+                self._grow(x1, y1, min(end, y1 + end * rng.uniform(0.2, 0.45)), segs, 1, 0.6)
+        self.bolt = segs
+        self.bolt_t = 0.0
+        self.next_strike = max(self.next_strike, 1.5)
+        if wet:
+            # the puddle it hits jumps: rings and a crown of spray
+            for k in range(3):
+                self.ripples.append([tx, end, -0.15 * k, 6.0 + 3.0 * k])
+            for _ in range(26):
+                self.splashes.append([tx + rng.uniform(-1.5, 1.5), end - 0.3, rng.uniform(-14, 14),
+                                      -rng.uniform(8, 20), rng.uniform(0.4, 0.8)])
+        else:
+            for _ in range(22):
+                self.sparks.append([tx + rng.uniform(-0.5, 0.5), end - 0.3, rng.uniform(-12, 12),
+                                    -rng.uniform(4, 14), rng.uniform(0.4, 0.9)])
 
     def strike_delay(self):
         f = self.opt("lightning")
@@ -215,6 +254,15 @@ class Rain(Scene):
                 keep.append(s)
         self.splashes = keep[-400:]
         keep = []
+        for s in self.sparks:
+            s[0] += s[2] * dt
+            s[1] += s[3] * dt
+            s[3] += 30 * dt
+            s[4] -= dt
+            if s[4] > 0:
+                keep.append(s)
+        self.sparks = keep[-200:]
+        keep = []
         for r in self.ripples:
             r[2] += dt
             if r[2] < 0.9:
@@ -286,6 +334,8 @@ class Rain(Scene):
                         put(x, y, "-", scale((150, 150, 210), f * 0.7), level=0.1)
         # ripples: flattened ellipses that expand and fade
         for rx, ry, age, rmax in self.ripples:
+            if age < 0:
+                continue
             k = age / 0.9
             r = rmax * (0.25 + 0.75 * math.sqrt(k))
             v = (1 - k) * 0.55
@@ -319,6 +369,9 @@ class Rain(Scene):
                 put(xx, yy, ch, scale(c, fade), level=0.3 + 0.5 * z)
         for x, y, vx, vy, life in self.splashes:
             put(x, y, "." if vy > 0 else "'", (150, 175, 220), level=0.5)
+        for x, y, vx, vy, life in self.sparks:
+            put(x, y, "*" if life > 0.5 else "'" if vy < 0 else ".", mix((255, 120, 40), (255, 240, 200), clamp(life * 1.5)),
+                level=0.9)
         # the bolt
         if self.bolt is not None and f > 0.25:
             core = (240, 235, 255)

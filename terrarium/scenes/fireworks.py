@@ -50,6 +50,7 @@ class Fireworks(Scene):
     title = "Fireworks"
     blurb = "a fireworks show over a lake or a harbour city, with smoke, reflections and a finale"
     tags = ("night", "celebration", "colorful", "sky")
+    interactions = "click the sky to launch a shell that bursts right there"
     options = {
         "intensity": (1.0, "how busy the show is (0.3 .. 3)"),
         "finale": (True, "end each act with a finale barrage"),
@@ -198,6 +199,29 @@ class Fireworks(Scene):
         p.z = rng.uniform(0.75, 1.15) * (1.0 - 0.35 * (1.0 - apex_frac))   # size by distance
         if col is not None:
             p.col = col
+        self.parts.append(p)
+
+    def on_click(self, x, y):
+        """Fire a shell from the ground that bursts exactly at the clicked spot."""
+        rng = self.rng
+        w, hz = self.w, self.hz
+        if sum(1 for p in self.parts if p.kind == 1) > 16:
+            return
+        cx = clamp(x, 1.0, max(1.0, w - 2.0))
+        cy = clamp(y, hz * 0.06, hz * 0.85)
+        g = self.G / ASPECT
+        y0 = hz - 0.5
+        rise = max(1.0, y0 - cy)
+        T = max(0.6, 0.7 * math.sqrt(2 * rise / max(g, 1e-6)))     # a brisk climb, bursting on the way up
+        vy = (cy - y0 - 0.5 * g * T * T) / T
+        x0 = clamp(cx + rng.uniform(-4, 4), 0.0, w - 1.0)
+        acc = self.wind * 0.25
+        vx = (cx - x0 - 0.5 * acc * T * T) / T
+        p = P(x0, y0, vx, vy, T, (255, 200, 140), drag=0.0, grav=1.0, kind=1, bright=0.6,
+              hlen=7 if self.trail_style == "glow" else 3)
+        p.btype = self.pick_type()
+        p.seed = rng.random()
+        p.z = rng.uniform(0.85, 1.1) * (1.0 - 0.3 * (cy / hz))
         self.parts.append(p)
 
     def burst(self, s):

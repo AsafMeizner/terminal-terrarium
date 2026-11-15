@@ -62,6 +62,7 @@ class Volcano(Scene):
     title = "Volcano"
     blurb = "a volcano at night erupting in cycles: lava fountains, flows and a glowing ash plume"
     tags = ("nature", "night", "fire", "dramatic")
+    interactions = "click to make it erupt now; click again while it erupts for a bigger blast"
     options = {
         "frequency": (1.0, "how often it erupts (multiplier)"),
         "intensity": (1.0, "eruption strength (multiplier)"),
@@ -315,6 +316,32 @@ class Volcano(Scene):
                 self.flows = self.flows[-10:]
         else:
             self.pdur = rng.uniform(2.5, 4.5)
+
+    def on_click(self, x, y):
+        rng = self.rng
+        inten = max(0.1, self.opt("intensity"))
+        if self.phase in ("quiet", "wane"):
+            self.phase = "quiet"
+            self.next_phase()          # -> rumble: picks the style and fountain height
+            self.next_phase()          # -> erupt, right now
+            n = 35
+        elif self.phase == "rumble":
+            self.next_phase()
+            n = 35
+        else:
+            # already erupting: a bigger, longer, higher one
+            self.fh = min(1.15, self.fh + 0.12)
+            self.fspread = min(9.0, self.fspread + 0.8)
+            self.pdur = min(self.ptime + 14.0, self.pdur + 3.0)
+            if len(self.flows) < 12:
+                self.flows.append(self.new_flow())
+            n = 60
+        self.burst = 1.0
+        self.glow = max(self.glow, 0.9)
+        for _ in range(int(n * inten)):
+            self.spawn(rng.gauss(0, 6.0), rng.uniform(0.4, 1.05) * self.fh)
+        if self.opt("plume") and self.bolt is None:
+            self.make_bolt()
 
     def update(self, dt):
         super().update(dt)

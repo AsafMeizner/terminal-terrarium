@@ -128,6 +128,7 @@ class Seascape(Scene):
     title = "Seascape"
     blurb = "a cross-section of the sea: boats and leaping dolphins above, fish and kelp below"
     tags = ("ocean", "nature", "calm", "animals")
+    interactions = "click the sea for a dolphin leap, the sky for gulls; point under water to scatter fish"
     options = {
         "time": ("random", "random, day, sunset or night"),
         "boats": (-1, "how many boats at once (-1 = random)"),
@@ -228,6 +229,44 @@ class Seascape(Scene):
         self.stars = [(rng.randrange(w), rng.randrange(max(1, hz - 1)), rng.uniform(0.2, 1.0), rng.uniform(0, TAU))
                       for _ in range(ns)]
         self._bgkey = None
+        self.visitors = []   # gulls called in by a click: [x, y, vx, phase, age]
+
+    def on_click(self, x, y):
+        w, hz = self.w, self.hz
+        rng = self.rng
+        x = clamp(x, 0.0, w - 1.0)
+        if y < hz - 0.5:
+            # the sky: a little V of gulls sweeps through the clicked spot
+            y = clamp(y, 0.5, max(0.5, hz - 2.0))
+            d = rng.choice((-1, 1))
+            sp = rng.uniform(8, 11)
+            for k in range(rng.randint(2, 4)):
+                side = 1 if k % 2 else -1
+                row = (k + 1) // 2
+                self.visitors.append([x - d * row * 3.5, clamp(y + side * row * 0.9, 0.5, max(0.5, hz - 2.0)),
+                                      d * sp, rng.uniform(0, TAU), 0.0])
+            self.visitors = self.visitors[-24:]
+            return
+        # the sea: a dolphin bursts out of the water and arcs over the clicked spot
+        if len(self.pod) >= 12:
+            return
+        if not hasattr(self, "leap_rhythm"):
+            self.leap_rhythm = 2.4
+        d = rng.choice((-1, 1))
+        o = Dolphin()
+        o.vx = d * rng.uniform(10, 12)
+        v0 = rng.uniform(13.5, 15.5)
+        o.x = x - o.vx * (v0 / 16.0)            # take off early so the top of the arc lands on the click
+        o.cruise = hz + rng.uniform(1.6, 3.2)
+        o.y = self.surf(o.x) + 1.4
+        o.vy = -v0
+        o.air = False
+        o.trail = [(o.x - o.vx * 0.03 * k, o.y + 0.4 * k) for k in range(6, 0, -1)]
+        o.next_leap = self.leap_rhythm + rng.uniform(0, 1)
+        o.phase = rng.uniform(0, TAU)
+        o.len = rng.randint(5, 7) if w >= 80 else 4
+        o.delay = 0.0
+        self.pod.append(o)
 
     def bedtop(self):
         return min(self.bed) if self.bed else self.h - 1
@@ -418,8 +457,13 @@ class Seascape(Scene):
             g[1] = clamp(g[1], 0.5, hz - 2)
         self.gulls = [g if -6 < g[0] < w + 6 else self.new_gull() for g in self.gulls]
         # dolphins
-        if self.opt("dolphins"):
+        if self.opt("dolphins") or self.pod:
             self.update_pod(dt)
+        for g in self.visitors:
+            g[0] += g[2] * dt
+            g[4] += dt
+            g[1] = clamp(g[1] - math.sin(g[4] * 1.5) * dt * 0.8, 0.5, max(0.5, hz - 2))
+        self.visitors = [g for g in self.visitors if -6 < g[0] < w + 6 and g[4] < 30]
         # splashes
         sp = []
         for d in self.splash:
@@ -561,9 +605,23 @@ class Seascape(Scene):
         tight = sp["tight"]
         tx, ty = s["tx"], s["ty"]
         lo, hi = hz + 1.5, None
+        ptr = self.pointer
+        if ptr is not None and ptr[1] < hz:
+            ptr = None              # only a hand in the water scares fish
         for i, f in enumerate(fish):
             ax = (tx - f[0]) * 0.25 + (cx - f[0]) * 0.6 * tight + (avx - f[2]) * 0.5
             ay = (ty - f[1]) * 0.5 + (cy - f[1]) * 0.8 * tight
+            vmax = speed * 1.3
+            vyl = 1.2
+            if ptr is not None:
+                dx, dy = f[0] - ptr[0], (f[1] - ptr[1]) * ASPECT
+                d = math.hypot(dx, dy)
+                if d < 12:
+                    k = (12 - d) * 14.0 / max(d, 0.5)
+                    ax += dx * k
+                    ay += dy * k / ASPECT
+                    vmax = speed * 3.0
+                    vyl = 4.0
             for j in range(max(0, i - 4), min(n, i + 5)):
                 if j == i:
                     continue
@@ -578,14 +636,13 @@ class Seascape(Scene):
             f[2] += ax * dt
             f[3] += ay * dt
             v = math.hypot(f[2], f[3] * ASPECT)
-            vmax = speed * 1.3
             if v > vmax:
                 f[2] *= vmax / v
                 f[3] *= vmax / v
             elif v < speed * 0.4 and v > 1e-6:
                 f[2] *= speed * 0.4 / v
                 f[3] *= speed * 0.4 / v
-            f[3] = clamp(f[3], -1.2, 1.2)
+            f[3] = clamp(f[3], -vyl, vyl)
             f[0] += f[2] * dt
             f[1] += f[3] * dt
             xi = int(clamp(f[0], 0, w - 1))
@@ -651,6 +708,9 @@ class Seascape(Scene):
         for x, y, vx, vy, life in self.splash:
             put(x, y, "'" if vy < 0 else "." if life < 0.4 else ",", mix(pal["surf"], (255, 255, 255), 0.4), level=0.8)
         gc = pal["gull"]
+        for x, y, vx, ph, age in self.visitors:
+            fl = math.sin(t * 9 + ph)
+            cv.text(int(x) - 1, int(y), "\\v/" if fl > 0.3 else "-v-" if fl > -0.3 else "/v\\", gc)
         for x, y, vx, ph, far in self.gulls:
             fl = math.sin(t * 7 + ph)
             if far:

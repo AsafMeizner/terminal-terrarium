@@ -34,6 +34,8 @@ class Jelly:
         self.tlen = self.r * rng.uniform(1.6, 2.6)
         self.vy = 0.0
         self.tilt = 0.0
+        self.kx = 0.0       # sideways push (from ripples and the pointer)
+        self.flash = 0.0    # extra glow after a ripple washes over it
 
 
 class Jellyfish(Scene):
@@ -41,6 +43,7 @@ class Jellyfish(Scene):
     title = "Jellyfish"
     blurb = "bioluminescent jellyfish pulsing through deep water"
     tags = ("ocean", "nature", "calm")
+    interactions = "click to send a ripple that makes the jellies glow, point to shoo them gently"
     options = {
         "count": (0, "number of jellyfish (0 = based on screen size)"),
         "palette": ("random", "random, harmony, mixed, pink, blue, moon or fire"),
@@ -68,6 +71,13 @@ class Jellyfish(Scene):
         ns = int(self.w * self.h / 45 * self.opt("snow") * self.density)
         self.snow = [[rng.uniform(0, self.w), rng.uniform(0, self.h), rng.uniform(0.2, 1.0), rng.uniform(0, 9)]
                      for _ in range(ns)]
+        self.rings = []     # click ripples: [x, y, radius, max radius, set of jellies already hit]
+
+    def on_click(self, x, y):
+        x = clamp(x, -2.0, self.w + 2.0)
+        y = clamp(y, -2.0, self.h + 2.0)
+        self.rings.append([x, y, 0.0, max(12.0, max(self.w, self.h * ASPECT) * 0.55), set()])
+        self.rings = self.rings[-6:]
 
     def update(self, dt):
         super().update(dt)
@@ -80,6 +90,32 @@ class Jellyfish(Scene):
             j.vy += 0.25 * dt  # slow sinking between pulses
             j.y += j.vy * dt * 0.9
             j.x += (j.drift + 0.6 * math.sin(self.t * 0.2 + j.sway)) * dt * (0.4 + j.depth)
+            # a ripple front washing over the jelly gives it a push and lights it up
+            for rg in self.rings:
+                if id(j) in rg[4]:
+                    continue
+                dx, dy = j.x - rg[0], (j.y - rg[1]) * ASPECT
+                d = math.hypot(dx, dy)
+                if d < rg[2] + j.r * 0.5:
+                    rg[4].add(id(j))
+                    k = 1 - rg[2] / rg[3]
+                    if d > 1e-3:
+                        j.kx += dx / d * 9.0 * k
+                        j.vy += dy / d * 4.0 * k
+                    j.flash = max(j.flash, 0.4 + 0.6 * k)
+            # the pointer: jellies drift lazily away from it
+            ptr = self.pointer
+            if ptr is not None:
+                dx, dy = j.x - ptr[0], (j.y - ptr[1]) * ASPECT
+                d = math.hypot(dx, dy)
+                reach = j.r * 2.2 + 6
+                if 1e-3 < d < reach:
+                    k = (1 - d / reach) * 4.0 * dt
+                    j.kx += dx / d * k
+                    j.vy += dy / d * k * 0.35
+            j.x += j.kx * dt
+            j.kx *= 0.4 ** dt
+            j.flash = max(0.0, j.flash - dt * 0.45)
             j.tilt = 0.25 * math.sin(self.t * 0.3 + j.sway)
             if j.y < -j.r * 1.2:
                 # it swam off the top: a brand-new, freshly generated jelly rises from below
@@ -91,6 +127,9 @@ class Jellyfish(Scene):
                 j.x = self.w + j.r
             elif j.x > self.w + j.r * 2:
                 j.x = -j.r
+        for rg in self.rings:
+            rg[2] += dt * (14.0 + rg[3] * 0.12)
+        self.rings = [rg for rg in self.rings if rg[2] < rg[3]]
         for s in self.snow:
             s[1] += dt * 0.35 * s[2]
             s[0] += dt * 0.15 * math.sin(self.t * 0.5 + s[3])
@@ -110,8 +149,25 @@ class Jellyfish(Scene):
                         cv.shade(x, y, (v - 0.55) * 0.35 * fall, (60, 120, 190))
         for sx, sy, sz, _ in self.snow:
             cv.shade(sx, sy, 0.08 + 0.12 * sz, (110, 150, 190))
+        for rg in self.rings:
+            self.draw_ring(cv, rg)
         for j in self.jellies:
             self.draw_jelly(cv, j)
+
+    def draw_ring(self, cv, rg):
+        x, y, r, mr, _ = rg
+        f = r / mr
+        col = mix(self.palette[0], (220, 245, 255), 0.6)
+        for ring, k in ((r, 1.0), (r * 0.82, 0.45), (r * 0.66, 0.2)):
+            if ring < 0.5:
+                continue
+            a = (1 - f) ** 1.3 * min(1.0, ring * 0.5) * k
+            if a < 0.03:
+                continue
+            n = max(10, int(ring * 7))
+            for i in range(n):
+                ang = math.tau * i / n
+                cv.shade(x + math.cos(ang) * ring, y + math.sin(ang) * ring / ASPECT, 0.8 * a, col)
 
     def draw_jelly(self, cv, j):
         t = self.t
@@ -121,6 +177,10 @@ class Jellyfish(Scene):
         cx, cy = j.x, j.y
         glow = 0.6 + 0.4 * j.depth
         col = j.color
+        if j.flash > 0:
+            glow *= 1.0 + 0.7 * j.flash
+            col = mix(col, (255, 255, 255), 0.35 * j.flash)
+            pulse = max(pulse, j.flash)
         rim_col = mix(col, (255, 255, 255), 0.5)
         organ_col = mix(col, (255, 110, 220), 0.55)
         ct, st = math.cos(j.tilt), math.sin(j.tilt)

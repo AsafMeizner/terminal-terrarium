@@ -42,6 +42,8 @@ class Koi:
                     for i in range(n + 1)]
         self.surface = 0.0
         self.next_surface = rng.uniform(6, 20)
+        self.dart = 0.0                             # seconds of "startled" burst left
+        self.gulp = 0.0                             # just ate: a moment of happy glow
 
 
 class Pad:
@@ -80,6 +82,7 @@ class KoiPond(Scene):
     title = "Koi Pond"
     blurb = "koi winding under lily pads and lotus flowers, ripples spreading on the water"
     tags = ("water", "nature", "calm", "zen")
+    interactions = "click to drop food pellets, point at a koi to make it dart away"
     options = {
         "fish": (0, "number of koi (0 = based on screen size)"),
         "pads": (1.0, "amount of lily pads (0 = none)"),
@@ -122,6 +125,18 @@ class KoiPond(Scene):
         self.ripples = []
         self.next_ripple = rng.uniform(0.5, 2)
         self.motes = [[rng.uniform(0, w), rng.uniform(0, h * ASPECT), rng.uniform(0, TAU)] for _ in range(max(4, w * h // 400))]
+        self.food = []      # floating pellets: [x, y (aspect-corrected), age, phase]
+
+    def on_click(self, x, y):
+        w, H = self.w, self.h * ASPECT
+        x = clamp(x, 1.0, max(1.0, w - 1.0))
+        y = clamp(y * ASPECT, 1.0, max(1.0, H - 1.0))
+        rng = self.rng
+        for _ in range(rng.randint(2, 4)):
+            self.food.append([x + rng.uniform(-1.8, 1.8), y + rng.uniform(-1.6, 1.6), 0.0, rng.uniform(0, TAU)])
+        self.food = self.food[-24:]
+        # the plop: a quick ring where the handful lands
+        self.ripples.append([x, y, 0.0, min(w, H) * 0.14 + 3, 0.9])
 
     # ------------------------------------------------------------------ motion
     def update(self, dt):
@@ -154,8 +169,40 @@ class KoiPond(Scene):
                 if dd < (f.L * 0.6) ** 2 and abs(o.depth - f.depth) < 0.3:
                     side = math.sin(math.atan2(dy, dx) - f.ang)
                     turn -= 0.8 * (1 if side > 0 else -1)
-            f.ang += clamp(turn, -1.6, 1.6) * dt
-            sp = f.speed * (0.8 + 0.3 * math.sin(t * 0.4 + f.phase))
+            lim = 1.6
+            boost = 1.0
+            # hungry: turn toward the nearest pellet and speed up a little
+            if self.food:
+                p = min(self.food, key=lambda q: (q[0] - f.x) ** 2 + (q[1] - f.y) ** 2)
+                dx, dy = p[0] - f.x, p[1] - f.y
+                dist = math.hypot(dx, dy)
+                d = (math.atan2(dy, dx) - f.ang + math.pi) % TAU - math.pi
+                turn = turn * 0.3 + d * 3.0
+                lim = 3.2
+                boost = 1.0 + 0.5 * clamp(dist / (f.L * 0.8))
+                if dist < max(1.6, f.L * 0.13):
+                    self.food.remove(p)
+                    f.gulp = 1.0
+                    f.surface = 1.0
+                    self.ripples.append([p[0], p[1], 0.0, f.L * 0.45, 0.8])
+            # startled: dart away from the pointer
+            ptr = self.pointer
+            if ptr is not None:
+                dx, dy = f.x - ptr[0], f.y - ptr[1] * ASPECT
+                if dx * dx + dy * dy < (f.L * 0.75) ** 2:
+                    if f.dart <= 0.2:
+                        self.ripples.append([f.x, f.y, 0.0, f.L * 0.35, 0.6])
+                    f.dart = 1.2
+                    away = math.atan2(dy, dx)
+                    d = (away - f.ang + math.pi) % TAU - math.pi
+                    turn = d * 5.0
+                    lim = 5.0
+            if f.dart > 0:
+                f.dart = max(0.0, f.dart - dt)
+                boost = max(boost, 1.0 + 2.2 * f.dart)
+            f.gulp = max(0.0, f.gulp - dt * 0.8)
+            f.ang += clamp(turn, -lim, lim) * dt
+            sp = f.speed * (0.8 + 0.3 * math.sin(t * 0.4 + f.phase)) * boost
             f.x += math.cos(f.ang) * sp * dt
             f.y += math.sin(f.ang) * sp * dt
             f.phase += dt * (2.0 + sp * 0.6)
@@ -188,6 +235,10 @@ class KoiPond(Scene):
                 self.next_ripple = rng.uniform(1.0, 3.5)
                 self.ripples.append([rng.uniform(0, w), rng.uniform(0, H), 0.0,
                                      min(w, H) * rng.uniform(0.12, 0.25), rng.uniform(0.5, 0.9)])
+        for p in self.food:
+            p[2] += dt
+            p[0] += math.sin(t * 0.7 + p[3]) * dt * 0.15        # bobbing, drifting a hair
+        self.food = [p for p in self.food if p[2] < 60]
         keep = []
         for r in self.ripples:
             r[2] += dt * (2.2 + r[3] * 0.08)
@@ -206,6 +257,19 @@ class KoiPond(Scene):
         for p in self.pads:
             if p.lotus:
                 self.draw_lotus(cv, p)
+        self.draw_food(cv)
+
+    def draw_food(self, cv):
+        t = self.t
+        for x, y, age, ph in self.food:
+            sy = y / ASPECT
+            fade = clamp((60 - age) / 5)
+            # a tiny ring of disturbed water around each floating pellet
+            ring = 1.2 + 0.4 * math.sin(t * 2 + ph)
+            for k in range(8):
+                a = TAU * k / 8
+                cv.shade(x + math.cos(a) * ring, sy + math.sin(a) * ring / ASPECT, 0.22 * fade, (170, 220, 230))
+            cv.put(x, sy, "o", mix((120, 80, 40), (230, 170, 90), fade))
 
     def draw_water(self, cv):
         t = self.t
@@ -257,7 +321,7 @@ class KoiPond(Scene):
         pts = f.pts
         n = f.n
         W = f.W
-        dim = 0.62 + 0.38 * f.depth + 0.2 * f.surface
+        dim = 0.62 + 0.38 * f.depth + 0.2 * f.surface + 0.15 * f.gulp
         deep = (1 - f.depth) * 0.35
         tint = (40, 70, 110)
         shade = cv.shade

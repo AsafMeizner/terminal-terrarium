@@ -12,6 +12,7 @@ PALETTES = {
 }
 LUT_N = 48
 FLAME = " .':^*(%#@"  # flame glyphs used with the default charset
+SPIN = "-/|" + chr(92)  # a tumbling stick
 
 
 class Campfire(Scene):
@@ -19,6 +20,7 @@ class Campfire(Scene):
     title = "Campfire"
     blurb = "a crackling campfire under the stars, with sparks and drifting smoke"
     tags = ("night", "cozy", "fire", "calm")
+    interactions = "click to toss kindling on the fire, point near it to make the flames lean away"
     options = {
         "size": (1.0, "size of the fire (0.5 .. 2)"),
         "sparks": (1.0, "amount of sparks (0 = none)"),
@@ -47,7 +49,9 @@ class Campfire(Scene):
         self.spread = rng.uniform(1.0, 2.0)          # how hard the edges burn off: wide body .. single tongue
         self.spark_k = rng.uniform(0.5, 1.6)
         self.base = self.gy + max(1, int((h - self.gy) * 0.3))   # row the flames grow from
-        self.heat = [[0.0] * self.fw for _ in range(self.fh)]
+        # the heat field has headroom above the usual flame height so a flare-up can climb into it
+        self.fhg = max(self.fh, min(self.base + 1, int(self.fh * 1.6)))
+        self.heat = [[0.0] * self.fw for _ in range(self.fhg)]
         self.acc = 0.0
         self.lut = [gradient(PALETTES[pal], i / (LUT_N - 1)) for i in range(LUT_N)]
         self.sparks = []      # [x, y, vx, vy, life, max]
@@ -86,6 +90,24 @@ class Campfire(Scene):
         self.logs = [(self.fw * (0.44 - 0.12 * k) * rng.uniform(0.85, 1.1), self.base - k) for k in range(nl)]
         self.ground = [[(x * 37 + y * 53 + seed) % 11 for x in range(w)] for y in range(h)]
         self._bgkey = None
+        self.boost = 0.0      # flare-up after kindling lands (1 = just landed, eases back to 0)
+        self.push = 0.0       # extra lean from the pointer's "breath"
+        self.tossed = []      # kindling in the air: [x, y, vx, vy, spin, time left]
+
+    def on_click(self, x, y):
+        rng = self.rng
+        if len(self.tossed) >= 8:
+            return
+        x = clamp(x, -2.0, self.w + 2.0)
+        y = clamp(y, -2.0, self.h + 2.0)
+        tx = self.cx + rng.uniform(-0.2, 0.2) * self.fw
+        ty = self.base - 1.0
+        dist = math.hypot(tx - x, (ty - y) * ASPECT)
+        T = clamp(dist / 45.0, 0.35, 0.9)
+        g = 30.0
+        vx = (tx - x) / T
+        vy = (ty - y - 0.5 * g * T * T) / T
+        self.tossed.append([x, y, vx, vy, rng.uniform(0, 4), T])
 
     # ------------------------------------------------------------------ static layer
     def paint_static(self, b):
@@ -122,23 +144,25 @@ class Campfire(Scene):
     def step_fire(self):
         """One step of a 'doom fire' heat field, shaped into tongues of flame."""
         rng = self.rng
-        heat, fw, fh = self.heat, self.fw, self.fh
+        heat, fw, fh0 = self.heat, self.fw, self.fh
+        fh = self.fhg                                        # rows in the field (with flare headroom)
         half = fw / 2
         t = self.t
-        wind = self.wind
+        wind = self.wind + self.push
+        boost = self.boost
         bottom = heat[fh - 1]
         for x in range(fw):
             d = abs(x + 0.5 - half) / half
             base = (1 - d * d) ** 0.6 if d < 1 else 0.0
             tongue = noise1(x * 0.28 + t * 1.7, 3) * 0.6 + noise1(x * 0.7 - t * 3.1, 4) * 0.4  # hot spots wander
-            bottom[x] = base * clamp(0.8 + 0.55 * tongue) * (0.85 + 0.15 * rng.random())
-        k_decay = 0.95 * self.decay_k / fh
-        lean = wind * 0.6
+            bottom[x] = base * clamp(0.8 + 0.55 * tongue + 0.4 * boost) * (0.85 + 0.15 * rng.random())
+        k_decay = 0.95 * self.decay_k / fh0 * (1 - 0.45 * boost)
+        lean = clamp(wind * 0.6, -1.0, 1.0)
         rnd = rng.random
         for y in range(fh - 1):
             src = heat[y + 1]
             dst = heat[y]
-            up = 1 - y / fh                                  # 1 at the top .. 0 at the bottom
+            up = clamp(1 - (y - (fh - fh0)) / fh0)          # 1 at the top .. 0 at the bottom
             for x in range(fw):
                 r = rnd()
                 sx = x + (1 if r < 0.3 + lean * 0.3 else -1 if r > 0.7 + lean * 0.3 else 0)
@@ -162,10 +186,40 @@ class Campfire(Scene):
         if self.acc > 1 / 30:
             self.acc = 0.0
         t = self.t
-        self.flicker = 0.85 + 0.1 * noise1(t * 3.1, 1) + 0.05 * noise1(t * 9.0, 2)
-        wind = self.wind
+        # kindling flying in: when it lands the fire flares up with a burst of sparks
+        g = 30.0
+        flying = []
+        for k in self.tossed:
+            k[3] += g * dt
+            k[0] += k[2] * dt
+            k[1] += k[3] * dt
+            k[4] += dt * 12
+            k[5] -= dt
+            if k[5] > 0:
+                flying.append(k)
+                continue
+            self.boost = 1.0
+            for _ in range(int(30 * max(0.3, self.opt("sparks")))):
+                life = rng.uniform(0.8, 2.6)
+                self.sparks.append([self.cx + rng.uniform(-0.35, 0.35) * self.fw, self.base - rng.uniform(1, 4),
+                                    rng.uniform(-6, 6), -rng.uniform(8, 17), life, life])
+        self.tossed = flying
+        self.boost = max(0.0, self.boost - dt / 8.0)
+        # the pointer near the fire is like a breath: flames lean away from it
+        target = 0.0
+        ptr = self.pointer
+        if ptr is not None:
+            fy = self.base - self.fh * 0.4
+            dx = self.cx - ptr[0]
+            d = math.hypot(dx, (fy - ptr[1]) * ASPECT)
+            reach = self.fw * 1.3 + 6
+            if d < reach:
+                target = (1 if dx > 0 else -1) * 1.3 * (1 - d / reach) ** 0.7
+        self.push += (target - self.push) * min(1.0, dt * 3)
+        self.flicker = (0.85 + 0.1 * noise1(t * 3.1, 1) + 0.05 * noise1(t * 9.0, 2)) * (1 + 0.15 * self.boost)
+        wind = self.wind + self.push
         # sparks
-        rate = 9 * self.opt("sparks") * self.spark_k * (self.fw / 16)
+        rate = 9 * self.opt("sparks") * self.spark_k * (self.fw / 16) * (1 + 3 * self.boost)
         self.spark_acc += dt * rate
         top = self.base - self.fh * 0.45
         while self.spark_acc > 1:
@@ -183,7 +237,7 @@ class Campfire(Scene):
                 keep.append(s)
         self.sparks = keep[-300:]
         # smoke
-        self.smoke_acc += dt * 3.0
+        self.smoke_acc += dt * 3.0 * (1 + 1.5 * self.boost)
         while self.smoke_acc > 1:
             self.smoke_acc -= 1
             self.smoke.append([self.cx + rng.uniform(-1.5, 1.5), self.base - self.fh * 0.7, 0.0, rng.uniform(0, 99)])
@@ -260,8 +314,9 @@ class Campfire(Scene):
         lv = cv.lv
         x0 = cx - fw / 2
         lmax = LUT_N - 1
-        for gy_ in range(fh):
-            y = int(base - fh + 1 + gy_)
+        fhg = self.fhg
+        for gy_ in range(fhg):
+            y = int(base - fhg + 1 + gy_)
             if y < 0 or y >= h:
                 continue
             row = heat[gy_]
@@ -293,6 +348,13 @@ class Campfire(Scene):
         for sx, sy, ch, b in self.stones:
             k = max(0.0, 1 - abs(sx - cx) / (fw * 0.8)) * fl
             put(sx, sy, ch, mix(scale((95, 90, 95), b), (255, 140, 60), 0.25 + 0.55 * k), level=0.7)
+        # kindling in the air, tumbling
+        for x, y, vx, vy, spin, left in self.tossed:
+            a = spin * 0.6
+            ch = SPIN[int((a % math.pi) / math.pi * 4 + 0.5) % 4]
+            ca, sa = math.cos(a), math.sin(a) / ASPECT
+            for k in (-1, 0, 1):
+                put(x + ca * k, y - sa * k, ch, (185, 125, 70) if k else (215, 150, 90), level=0.9)
         # sparks
         for x, y, vx, vy, life, mx in self.sparks:
             k = life / mx

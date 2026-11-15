@@ -24,7 +24,7 @@ def _q(r, g, b):
 
 
 class Lantern:
-    __slots__ = ("x", "y", "z", "rise", "sway", "phase", "seed", "top", "bot", "shape", "ribs", "age")
+    __slots__ = ("x", "y", "z", "rise", "sway", "phase", "seed", "top", "bot", "shape", "ribs", "age", "boost", "extra")
 
     def __init__(self, rng, x, y, z, colors):
         self.x, self.y, self.z = x, y, z
@@ -36,6 +36,8 @@ class Lantern:
         self.shape = rng.uniform(0.6, 0.85)        # bottom width / top width
         self.ribs = rng.choice((0, 2, 3))
         self.age = 0.0
+        self.boost = None     # a clicked lantern climbs briskly up to this row first
+        self.extra = False    # released by a click: it is not replaced when it drifts away
 
 
 class Lanterns(Scene):
@@ -43,6 +45,7 @@ class Lanterns(Scene):
     title = "Sky Lanterns"
     blurb = "paper sky lanterns rising over a calm lake at night, glowing in the water"
     tags = ("night", "calm", "cozy", "water", "celebration")
+    interactions = "click to release a lantern (click the sky and one rises from the shore to meet it)"
     options = {
         "count": (0, "number of lanterns (0 = based on screen size)"),
         "wind": ("random", "breeze from -2 (left) to 2 (right), or random"),
@@ -129,6 +132,26 @@ class Lanterns(Scene):
             nl = Lantern(rng, rng.uniform(0, w), hz - 0.5 - z * 3, z, self.colors)
         return nl
 
+    def on_click(self, x, y):
+        rng = self.rng
+        w, h, hz = self.w, self.h, self.hz
+        if sum(1 for L in self.lanterns if L.extra) >= 40:
+            return
+        x = clamp(x, 1.0, max(1.0, w - 2.0))
+        if y >= hz:
+            # over the water: it is lit and let go right there, nearer the lower you click
+            y = min(y, h - 1.5)
+            z = clamp(0.45 + 0.55 * (y - hz) / max(1, h - hz), 0.3, 1.0)
+            L = Lantern(rng, x, y, z, self.colors)
+        else:
+            # in the sky: someone on the near shore lets one go, and it climbs up to where you clicked
+            L = Lantern(rng, x, h - 2.5, rng.uniform(0.8, 1.0), self.colors)
+            L.boost = max(-1.0, y)
+        L.extra = True
+        L.age = 0.0
+        self.lanterns.append(L)
+        self.lanterns.sort(key=lambda q: q.z)
+
     def update(self, dt):
         super().update(dt)
         t = self.t
@@ -137,14 +160,27 @@ class Lanterns(Scene):
         for k, L in enumerate(self.lanterns):
             L.age += dt
             sp = (0.35 + 1.1 * L.z) * L.rise
+            if L.boost is not None:
+                gap = L.y - L.boost
+                if gap < 0.5:
+                    L.boost = None
+                else:
+                    sp += min(14.0, gap * 1.6)
+                    L.z = max(0.3, L.z - dt * 0.05 * min(4.0, gap))
             L.y -= sp * dt
             L.x += (self.wind * (0.25 + 0.9 * L.z) + L.sway * 0.4 * math.sin(t * 0.35 + L.phase)) * dt
             L.z = max(0.04, L.z - dt * 0.004)          # drifting further away as it climbs
             size = self.big * L.z
             if L.y < -size / ASPECT * 1.5 - 1 or L.x < -size * 2 - 2 or L.x > w + size * 2 + 2:
                 out.append(k)
+        gone = []
         for k in out:
-            self.lanterns[k] = self.respawn(self.lanterns[k])
+            if self.lanterns[k].extra:
+                gone.append(k)
+            else:
+                self.lanterns[k] = self.respawn(self.lanterns[k])
+        for k in reversed(gone):
+            del self.lanterns[k]
         if out:
             self.lanterns.sort(key=lambda L: L.z)
 
@@ -202,6 +238,8 @@ class Lanterns(Scene):
         big = self.big
         for L in self.lanterns:
             fl = 0.82 + 0.18 * noise1(t * 2.3 + L.seed, L.seed)
+            if L.extra and L.age < 1.2:
+                fl *= 0.35 + 0.65 * L.age / 1.2 + 0.4 * max(0.0, math.sin(L.age * 9.0)) * (1.2 - L.age)
             Wd = big * L.z
             dim = 0.45 + 0.55 * min(1.0, L.z * 2.2)
             if Wd < 1.6:
