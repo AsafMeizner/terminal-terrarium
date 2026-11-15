@@ -103,7 +103,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 
 <!-- scenes:start -->
 
-**31 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**33 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -146,6 +146,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 |---|---|---|
 | <img src="docs/screenshots/blackhole.png" width="300" alt="blackhole"> | **`blackhole`** | a black hole bending light: lensed accretion disk, photon ring, Doppler glow and jets<br><sub>options: `tilt`, `jets`, `palette`, `stars`</sub> |
 | <img src="docs/screenshots/galaxy.png" width="300" alt="galaxy"> | **`galaxy`** | a rotating spiral galaxy with a golden core, blue arms and pink nebulae<br><sub>options: `arms`, `tilt`, `pitch`, `bar`, `spin`, `palette`, `nebulae`, `stars`</sub> |
+| <img src="docs/screenshots/solar.png" width="300" alt="solar"> | **`solar`** | a star with shaded planets on tilted orbits, rings, moons and the odd comet<br><sub>options: `planets`, `speed`, `orbits`, `star`</sub> |
 | <img src="docs/screenshots/starfield.png" width="300" alt="starfield"> | **`starfield`** | flying through space past streaking stars and drifting nebulae<br><sub>options: `speed`, `warp`, `stars`, `nebulae`, `palette`</sub> |
 
 ### Sky, weather & places
@@ -154,6 +155,7 @@ When you quit, it prints the seed it used. Run with `--seed N` to get that exact
 |---|---|---|
 | <img src="docs/screenshots/aurora.png" width="300" alt="aurora"> | **`aurora`** | northern lights rippling over dark mountains and a still lake<br><sub>options: `intensity`, `colors`, `reflection`, `curtains`</sub> |
 | <img src="docs/screenshots/campfire.png" width="300" alt="campfire"> | **`campfire`** | a crackling campfire under the stars, with sparks and drifting smoke<br><sub>options: `size`, `sparks`, `wind`, `palette`</sub> |
+|  | **`desert`** | sand streaming off dunes, saguaros, a camel caravan, sunset into a milky-way night<br><sub>options: `cycle`, `time`, `caravan`</sub> |
 | <img src="docs/screenshots/fireflies.png" width="300" alt="fireflies"> | **`fireflies`** | fireflies blinking over a summer meadow at the edge of a forest<br><sub>options: `count`, `color`</sub> |
 | <img src="docs/screenshots/rain.png" width="300" alt="rain"> | **`rain`** | night rain over a city, with splashes, ripples and lightning<br><sub>options: `intensity`, `wind`, `lightning`, `skyline`</sub> |
 | <img src="docs/screenshots/skyline.png" width="300" alt="skyline"> | **`skyline`** | a city skyline time-lapse: day to night, windows lighting up, traffic streaming below<br><sub>options: `cycle`, `density`, `start`, `clouds`</sub> |
