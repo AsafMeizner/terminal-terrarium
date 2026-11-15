@@ -11,6 +11,7 @@ import math
 from ..engine import ASPECT, Scene, clamp, hsv, mix, noise1, scale, smoothstep
 
 TAU = math.tau
+PI = math.pi
 
 FLOWER_HUES = {"red": 0.995, "orange": 0.06, "pink": 0.93, "purple": 0.8, "yellow": 0.13}
 # back colour, belly colour, gorget hue, tail colour
@@ -58,17 +59,17 @@ class Plant:
         self.lean = lean
         self.phase = rng.uniform(0, TAU)
         self.flowers = []
-        n = rng.randint(3, 6)
+        n = rng.randint(2, 4)
         for k in range(n):
-            at = 0.45 + 0.55 * (k + rng.uniform(0.0, 0.6)) / n
+            at = 0.5 + 0.5 * (k + rng.uniform(0.2, 0.7)) / n
             side = rng.choice((-1, 1)) if kind == "vine" else (1 if k % 2 else -1)
             if kind == "spike":
                 ang = rng.uniform(-0.35, 0.2)
             else:
                 ang = rng.uniform(-0.75, -0.4)
-            self.flowers.append(Trumpet(self, at, side, ang, L * rng.uniform(1.4, 1.8), L * rng.uniform(0.5, 0.62),
+            self.flowers.append(Trumpet(self, at, side, ang, L * rng.uniform(1.15, 1.4), L * rng.uniform(0.55, 0.65),
                                         rng.choice(cols)))
-        self.leaves = [(rng.uniform(0.1, 0.9), rng.choice((-1, 1)), rng.uniform(0.6, 1.2)) for _ in range(rng.randint(2, 5))]
+        self.leaves = [(rng.uniform(0.1, 0.9), rng.choice((-1, 1)), rng.uniform(0.6, 1.2)) for _ in range(rng.randint(0, 2))]
         self.sway = 0.0
 
     def point(self, s):
@@ -91,7 +92,7 @@ class Bird:
         j = lambda c: tuple(clamp(v + rng.uniform(-15, 15), 0, 255) for v in c)
         self.back, self.belly, self.tailc = j(back), j(belly), j(tail)
         self.ghue = ghue + rng.uniform(-0.03, 0.03)
-        self.beak = rng.uniform(1.0, 1.4)
+        self.beak = rng.uniform(0.85, 1.1)
         self.curve = rng.uniform(-0.12, 0.05)
         self.rate = rng.uniform(0.8, 1.2)
         self.face = -enter_side
@@ -126,7 +127,7 @@ class Hummingbird(Scene):
         rng = self.rng
         w, h = self.w, self.h
         big = min(w, h * ASPECT)
-        self.L = L = clamp(big * rng.uniform(0.085, 0.105), 2.4, 12.0)
+        self.L = L = clamp(big * rng.uniform(0.115, 0.135), 2.6, 14.0)
         fc = self.opt("flower")
         if fc == "random":
             fc = rng.choice(list(FLOWER_HUES) + ["mixed", "mixed"])
@@ -138,7 +139,7 @@ class Hummingbird(Scene):
         cols = [hsv(hh, rng.uniform(0.7, 0.9), 1.0) for hh in hues]
         # plants: spikes from the ground and vines from the top, spread across the width
         self.plants = []
-        n = max(2, min(6, int(w / max(14.0, L * 5.5))))
+        n = max(2, min(5, int(w / max(18.0, L * 6.5))))
         slots = [(k + rng.uniform(0.2, 0.8)) / n * w for k in range(n)]
         for x in slots:
             kind = "spike" if rng.random() < 0.65 else "vine"
@@ -179,8 +180,8 @@ class Hummingbird(Scene):
                 if d < 1:
                     k = (1 - d) ** 2
                     n = noise1(x * 0.15 + y * 0.9, 3)
-                    if k * (0.7 + 0.3 * n) > 0.08:
-                        c = scale(mix(glow_c, tone, d), 0.08 + 0.42 * k * (0.75 + 0.25 * n))
+                    if k * (0.7 + 0.3 * n) > 0.18:
+                        c = scale(mix(glow_c, tone, d), 0.05 + 0.22 * k * (0.75 + 0.25 * n))
                         self.bg[y * w + x] = ("░", (int(c[0]) & ~3, int(c[1]) & ~3, int(c[2]) & ~3), 0.05)
         # a soft glow of distant light behind the leaves
         self.glow = (glow_x, glow_y, glow_c)
@@ -377,72 +378,89 @@ class Hummingbird(Scene):
             self.draw_bird(cv, b)
 
     def draw_plant(self, cv, p):
+        """A thin, graceful stem with one or two small leaves."""
         n = max(3, int(p.H / ASPECT * 1.3))
-        stem = (70, 140, 70) if p.kind == "spike" else (90, 120, 60)
+        stem = (60, 120, 70) if p.kind == "spike" else (80, 110, 60)
         px, py = p.point(0)
         for k in range(1, n + 1):
             s = k / n
             x, y = p.point(s)
-            cv.put(x, y, _dir_ch(x - px, y - py), scale(stem, 0.55 + 0.35 * s), level=0.5)
+            cv.put(x, y, _dir_ch(x - px, y - py), scale(stem, 0.5 + 0.3 * s), level=0.3)
             px, py = x, y
+        up = 1 if p.kind == "spike" else -1
+        tip_ch = "'" if up > 0 else ","
         for at, side, sz in p.leaves:
             x, y = p.point(at)
-            ln = max(2, int(self.L * 0.9 * sz))
+            ln = max(2, int(self.L * 0.5 * sz))
             for k in range(1, ln + 1):
                 q = k / ln
-                lx = x + side * k
-                ly = y - (0.5 * math.sin(q * math.pi) * (1 if p.kind == "spike" else -1)) - q * 0.6 * (1 if p.kind == "spike" else -1)
-                ch = "~" if 0.2 < q < 0.85 else ("_" if q >= 0.85 else ".")
-                cv.put(lx, ly, ch, scale((60, 150, 70), 0.5 + 0.4 * math.sin(q * math.pi)), level=0.5)
-                if 0.25 < q < 0.75 and ln > 3:
-                    cv.put(lx, ly + (1 if p.kind == "spike" else -1) * 0.6, "-", (40, 110, 55), level=0.4)
+                ch = "_" if q < 0.4 else ("~" if q < 0.85 else tip_ch)
+                cv.put(x + side * k, y - up * (q > 0.6) * 0.6, ch, scale((70, 150, 80), 0.45 + 0.3 * math.sin(q * PI)),
+                       level=0.3)
 
     def draw_trumpet(self, cv, f):
-        """A flared tube: narrow green calyx, glowing tube, a lobed mouth with a dark throat."""
+        """A slender tube that flares into a five-lobed mouth. Few glyph levels: a bright rim,
+        a deeper fill, a pale lobed lip and a dark throat."""
         h, w = self.h, self.w
         ax, ay = f.ax, f.ay
         L, R = f.L, f.r
         x0, y0 = f.x, f.y
-        ext = L * 1.15 + R * 1.4
+        Rm = R * 1.35
+        ext = L * 1.1 + Rm
+        k = 1.0 + 0.25 * f.pulse
         col = f.col
-        deep = mix(col, (90, 10, 40), 0.45)
-        lite = mix(col, (255, 240, 220), 0.35)
-        glow = 0.12 * f.pulse
+        rim_c = scale(mix(col, (255, 245, 235), 0.2), k)
+        fill_c = scale(mix(col, (70, 0, 40), 0.35), 0.8 * k)
+        lip_c = scale(mix(col, (255, 250, 245), 0.45), k)
+        tube_ch = "=" if abs(ay) < 0.45 else _dir_ch(ax, -ay / ASPECT)
+        along_ch = _dir_ch(ax, -ay / ASPECT)
+        across_ch = _dir_ch(-ay, -ax / ASPECT)
+        if abs(ax) > abs(ay) * 1.2:
+            tip_ch = ")" if ax > 0 else "("
+        else:
+            tip_ch = "v" if ay < 0 else "^"
+        cal = (90, 160, 80)
         for y in range(max(0, int(y0 - ext / ASPECT) - 1), min(h, int(y0 + ext / ASPECT) + 2)):
             dy = -(y + 0.5 - y0) * ASPECT
             for x in range(max(0, int(x0 - ext) - 1), min(w, int(x0 + ext) + 2)):
                 dx = x + 0.5 - x0
                 u = (dx * ax + dy * ay) / L               # along the tube 0..1
-                p = (-dx * ay + dy * ax)                  # across, units; + is the "upper" side
-                if u < -0.05 or u > 1.12:
+                if u < 0.0 or u > 1.1:
                     continue
-                if u < 0.15:
-                    r = R * 0.3
-                else:
-                    r = R * (0.24 + 0.76 * smoothstep(0.5, 1.0, u) ** 2.2)
-                if u > 0.94:                              # mouth: lobed, curled-back flare
-                    lobe = 1.45 + 0.2 * math.cos(p / R * 4.5)
-                    r = R * lobe * (1 - (u - 0.94) / 0.18)
+                p = -dx * ay + dy * ax                    # across, units
                 ap = abs(p)
-                if ap > r + 0.6:
+                if u < 0.9:
+                    r = max(0.5, R * (0.16 + 0.84 * smoothstep(0.5, 0.92, u) ** 1.6))
+                    if ap > r:
+                        continue
+                    if u < 0.12:
+                        cv.put(x, y, tube_ch, cal, level=0.6)
+                    elif r < 1.2:
+                        cv.put(x, y, tube_ch, rim_c, level=0.6)
+                    elif ap > r - 0.8:
+                        cv.put(x, y, along_ch, rim_c, level=0.7)
+                    else:
+                        cv.put(x, y, ":", fill_c, level=0.6)
                     continue
-                if ap > r:
-                    cv.shade(x, y, 0.12 + glow, col)
+                # the mouth: five lobes across the opening, each with a rounded edge
+                s = p / Rm
+                if abs(s) > 1.0:
                     continue
-                if u < 0.15:
-                    cv.put(x, y, "=", (80, 150, 70), level=0.6)
+                lob = (s + 1.0) * 2.5                     # 0..5 across the five lobes
+                fr = lob - int(lob) - 0.5
+                edge = 0.9 + 0.13 * math.cos(fr * PI) * (1 - 0.3 * s * s)
+                if u > edge:
                     continue
-                side = p / max(r, 0.3)
-                v = 0.55 + 0.25 * u + 0.2 * max(0.0, side) + glow
-                c = mix(deep, lite, clamp(u * 0.8 + 0.4 * side))
-                if u > 0.96 and ap < R * 0.35:
-                    c = mix(c, (60, 10, 30), 0.6)            # the dark throat
-                    v = 0.5
-                if u > 0.5 and abs(side) < 0.25 and u < 0.96:
-                    c = mix(c, (255, 250, 230), 0.2)        # a glossy streak
-                cv.shade(x, y, clamp(v), c, mode="over")
+                if abs(s) < 0.32 and u < edge - 0.04:
+                    cv.put(x, y, ".", (70, 20, 40), level=0.7)       # the dark throat
+                elif u > edge - 0.06 and abs(fr) < 0.3:
+                    cv.put(x, y, tip_ch, scale(lip_c, 1.15), level=0.9)   # lobe tips
+                else:
+                    cv.put(x, y, across_ch, lip_c, level=0.8)
 
     def draw_bird(self, cv, b):
+        """Clean silhouette: wing blur behind, a dark margin cut round the body, then a rounded
+        body with few glyph levels, a bright gorget, a thin beak and a fanned tail."""
         L = b.L
         t = self.t
         w, h = self.w, self.h
@@ -450,16 +468,34 @@ class Hummingbird(Scene):
         al = b.alpha
         ca, sa = math.cos(al), math.sin(al)
         beta = -1.0 + b.curve
-        # iridescent gorget: dark most of the time, blazing when the angle catches the light
+        # iridescent gorget: always jewel-bright, blazing and shifting hue when the angle is right
         g = math.sin(t * 0.9 + b.glint_seed) * 0.6 + math.sin(t * 2.3 + b.glint_seed * 2) * 0.4 + b.turn * 1.2
         flash = clamp((g + 0.15) * 1.6)
-        gorget = hsv(b.ghue + 0.04 * math.sin(t * 1.7 + b.glint_seed), 0.85, 0.25 + 0.75 * flash)
+        gorget = hsv(b.ghue + 0.05 * math.sin(t * 1.7 + b.glint_seed) - 0.04 * flash, 0.9 - 0.25 * flash,
+                     0.7 + 0.3 * flash)
         sheen = 0.5 + 0.5 * math.sin(t * 1.3 + b.glint_seed)
-        ext = L * 2.6
+        # wings first: a faint fan behind the bird, plus one strobed blade
+        shx = b.x + (ca * 0.3 - sa * 0.32) * L * face
+        shy = b.y - (sa * 0.3 + ca * 0.32) * L / ASPECT
+        darting = b.state == "dart" and 0.1 < b.prog < 0.9
+        a0, a1 = (al + 0.45, al + 1.75) if not darting else (al + 0.9, al + 1.7)
+        wl = 1.6 * L
+        wing_col = mix(b.back, (200, 220, 235), 0.6)
+        nf = 6
+        for k in range(nf):
+            q = k / (nf - 1)
+            edge = abs(2 * q - 1)
+            self.blade(cv, shx, shy, a0 + (a1 - a0) * q, wl, face, 0.1 + 0.16 * edge ** 3, wing_col)
+        sp = 0.5 + 0.5 * math.sin(b.wphase)
+        self.blade(cv, shx, shy, a0 + (a1 - a0) * sp, wl, face, 0.34, wing_col)
+        # classify silhouette cells
+        ext = L * 2.4
         x0, x1 = max(0, int(b.x - ext)), min(w, int(b.x + ext) + 1)
         y0, y1 = max(0, int(b.y - ext / ASPECT)), min(h, int(b.y + ext / ASPECT) + 1)
-        tail_tau = -0.35 + 0.12 * math.sin(t * 3 + b.glint_seed)
+        tail_tau = -0.3 + 0.12 * math.sin(t * 3 + b.glint_seed)
         tc, ts = math.cos(tail_tau), math.sin(tail_tau)
+        tail_ch = _dir_ch(-math.cos(al + tail_tau) * face, math.sin(al + tail_tau) / ASPECT)
+        cells = {}
         eye = None
         inv = 1.0 / L
         for y in range(y0, y1):
@@ -468,83 +504,68 @@ class Hummingbird(Scene):
                 wx = (x + 0.5 - b.x) * inv * face
                 u = wx * ca + wy * sa                      # along the body, toward the head
                 v = -wx * sa + wy * ca                     # + is the back
-                col = None
-                # head
                 hu, hv = u - 1.05, v - 0.05
-                hd = hu * hu + hv * hv
-                if hd < 0.46 * 0.46:
-                    d = math.sqrt(hd) / 0.46
-                    lit = 0.55 + 0.4 * (1 - d * d) ** 0.5 + 0.15 * (hv > 0)
-                    if hv < -0.08 and hu > -0.3:
-                        col = gorget
-                        lit = 0.5 + 0.5 * flash
-                    else:
-                        col = mix(b.back, (255, 255, 200), 0.25 * sheen * (1 - d))
-                    if abs(hu - 0.13) < 0.11 and abs(hv - 0.1) < 0.11:
+                hd = math.sqrt(hu * hu + hv * hv) / 0.5
+                if hd < 1.0:
+                    if abs(hu - 0.16) < 0.12 and abs(hv - 0.12) < 0.13:
                         eye = (x, y)
-                    cv.shade(x, y, clamp(lit), col, mode="over")
+                    reg = "throat" if (hv < -0.12 and hu > -0.35) else "crown"
+                    cells[(x, y)] = (reg, hd)
                     continue
-                # body: a teardrop, a little fuller at the chest
-                bw = 0.0
-                if -1.05 < u < 1.15:
-                    lim = (1 - (u / 1.15) ** 4) if u > 0 else (1 - (u / 1.05) ** 2)
-                    bw = 0.56 * (1 - 0.18 * u) * max(0.0, lim) ** 0.5
-                if bw > 0 and abs(v) < bw:
-                    nv = v / bw
-                    lit = 0.5 + 0.35 * (1 - nv * nv) ** 0.5 + 0.12 * nv
-                    if v > 0.02:
-                        col = mix(b.back, (255, 240, 120), 0.3 * sheen * clamp(1 - abs(u - 0.2)))
-                        col = mix(col, scale(b.back, 0.55), clamp(-u * 0.6))
-                    elif u > 0.65:
-                        col = gorget
-                        lit = 0.45 + 0.55 * flash
-                    else:
-                        col = mix(b.belly, b.back, clamp(0.4 + nv * 0.8 + (u < -0.5) * 0.3))
-                    cv.shade(x, y, clamp(lit), col, mode="over")
-                    continue
-                # tail: a fan of feathers off the back end, cocked a little
-                ru, rv = u + 0.9, v + 0.02
+                if -0.9 < u < 1.1:
+                    lim = (1 - (u / 1.1) ** 4) if u > 0 else (1 - (u / 0.9) ** 2)
+                    bw = 0.62 * (1 - 0.12 * u) * max(0.0, lim) ** 0.5
+                    if abs(v) < bw:
+                        e = abs(v) / bw
+                        reg = "back" if v > 0.05 else ("throat" if u > 0.7 else "belly")
+                        cells[(x, y)] = (reg, e)
+                        continue
+                ru, rv = u + 0.7, v + 0.02
                 tu = ru * tc + rv * ts
                 tv = -ru * ts + rv * tc
-                if -1.15 < tu < 0:
-                    spread = 0.12 + 0.24 * (-tu / 1.15)
+                if -0.9 < tu < 0:
+                    spread = 0.1 + 0.24 * (-tu / 0.9)
                     if abs(tv) < spread:
-                        fe = (tv / spread * 2.5) % 1.0
-                        notch = (fe < 0.15 or fe > 0.85) and tu < -0.5
-                        tip = tu < -0.95
-                        c = mix(b.tailc, (250, 250, 250), 0.85) if tip and abs(tv) > spread * 0.5 else b.tailc
-                        cv.shade(x, y, 0.35 if notch else 0.62, c, mode="over")
-        # eye: a black bead with a white glint and a pale spot behind
+                        cells[(x, y)] = ("tip" if tu < -0.74 else "tail", abs(tv) / spread)
+        # cut a dark margin so the bird stands clear of flowers and wing blur
+        for (x, y) in cells:
+            for ox, oy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                q = (x + ox, y + oy)
+                if q not in cells and 0 <= q[0] < w and 0 <= q[1] < h:
+                    i = q[1] * w + q[0]
+                    cv.ch[i] = " "
+                    cv.fg[i] = None
+                    cv.lv[i] = 0.0
+        back = mix(b.back, (255, 245, 150), 0.3 * sheen)
+        for (x, y), (reg, e) in cells.items():
+            k = 1.0 - 0.3 * e * e
+            if reg == "crown":
+                ch, c = "@", mix(back, (255, 255, 220), 0.15 * (1 - e))
+            elif reg == "back":
+                ch, c = "#", back
+            elif reg == "throat":
+                ch, c, k = "@", gorget, 1.0 - 0.15 * e
+            elif reg == "belly":
+                ch, c = "%", b.belly
+            elif reg == "tail":
+                ch, c, k = tail_ch, b.tailc, 0.85
+            else:
+                ch, c, k = ("v" if e > 0.4 else tail_ch), mix(b.tailc, (250, 250, 250), 0.8), 0.9
+            cv.put(x, y, ch, scale(c, k), level=1.0)
         if eye:
             ex, ey = eye
-            cv.put(ex, ey, "o", (15, 15, 20), level=1.0)
-            cv.put(ex - face, ey, ".", (240, 240, 240), level=1.0)
-        # beak
-        bl = (0.4 + b.beak) * L
-        sx = b.x + (math.cos(al) * 1.05 + math.cos(al + beta) * 0.38) * L * face
-        sy = b.y - (math.sin(al) * 1.05 + math.sin(al + beta) * 0.38) * L / ASPECT
+            cv.put(ex, ey, "o", (10, 10, 14), level=1.0)
+            cv.put(ex - face, ey, ".", (250, 250, 250), level=1.0)
+        # beak: one clean thin line
+        bl = (0.42 + b.beak) * L
+        sx = b.x + (ca * 1.05 + math.cos(al + beta) * 0.46) * L * face
+        sy = b.y - (sa * 1.05 + math.sin(al + beta) * 0.46) * L / ASPECT
         bdx, bdy = math.cos(al + beta) * face, -math.sin(al + beta) / ASPECT
         n = max(2, int(bl * 1.1))
         ch = _dir_ch(bdx, bdy)
         for k in range(n + 1):
             q = k / n
-            cv.put(sx + bdx * bl * q, sy + bdy * bl * q, ch, scale((170, 160, 150), 1 - 0.35 * q), level=1.0)
-        # wings: a blurred fan above the back plus one strobed blade
-        shx = b.x + (ca * 0.3 - sa * 0.32) * L * face
-        shy = b.y - (sa * 0.3 + ca * 0.32) * L / ASPECT
-        darting = b.state == "dart" and 0.1 < b.prog < 0.9
-        a0, a1 = (al + 0.4, al + 1.8) if not darting else (al + 0.9, al + 1.7)
-        wl = 1.75 * L
-        wing_col = mix(b.back, (210, 230, 240), 0.55)
-        nf = 7
-        for k in range(nf):
-            q = k / (nf - 1)
-            a = a0 + (a1 - a0) * q
-            edge = abs(2 * q - 1)
-            val = 0.16 + 0.3 * edge ** 3
-            self.blade(cv, shx, shy, a, wl, face, val, wing_col)
-        sp = 0.5 + 0.5 * math.sin(b.wphase)
-        self.blade(cv, shx, shy, a0 + (a1 - a0) * sp, wl, face, 0.6, mix(wing_col, (255, 255, 255), 0.2))
+            cv.put(sx + bdx * bl * q, sy + bdy * bl * q, ch, scale((215, 205, 190), 1 - 0.3 * q), level=1.0)
 
     def blade(self, cv, sx, sy, a, length, face, val, col):
         dx, dy = math.cos(a) * face, -math.sin(a) / ASPECT
