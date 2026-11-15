@@ -232,8 +232,9 @@ function buildOptions() {
 }
 
 function setOption(o, value) {
-  if (String(value) === String(o.default)) delete cfg.options[o.key];
-  else cfg.options[o.key] = value;
+  const clean = cleanOption(o, value);
+  if (clean === null || String(clean) === String(o.default)) delete cfg.options[o.key];
+  else cfg.options[o.key] = clean;
   send(true);
 }
 
@@ -266,7 +267,37 @@ function updateCli() {
   if (cfg.speed != 1) parts.push("-s", cfg.speed);
   if (cfg.density != 1) parts.push("-d", cfg.density);
   for (const o of s.options) if (o.key in cfg.options) parts.push("-o", `${o.key}=${cfg.options[o.key]}`);
-  $("cli").textContent = parts.join(" ");
+  $("cli").textContent = parts.map(shellQuote).join(" ");
+}
+
+// The command is meant to be pasted into a shell, and option values can come from a shared link:
+// quote anything that isn't plainly safe.
+function shellQuote(v) {
+  const t = String(v);
+  return /^[A-Za-z0-9_.,:=+\/-]+$/.test(t) ? t : "'" + t.replace(/'/g, "'\\''") + "'";
+}
+
+// Keep only option values that fit the option's declared type (or choices).
+function cleanOption(o, raw) {
+  const v = String(raw).replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 40);
+  if (o.type === "bool") return ["true", "false", "1", "0", "on", "off", "yes", "no"].includes(v.toLowerCase()) ? v.toLowerCase() : null;
+  if (o.type === "int") return /^-?\d+$/.test(v) ? v : null;
+  if (o.type === "float") return /^-?\d+(\.\d+)?$/.test(v) ? v : null;
+  const choices = choicesFrom(o.help);
+  if (choices) return choices.includes(v) || v === String(o.default) ? v : null;
+  return /^[A-Za-z0-9_.+-]+$/.test(v) ? v : null; // free text: plain tokens or numbers only
+}
+
+function sanitizeOptions() {
+  const s = sceneMeta();
+  const out = {};
+  for (const o of s.options) {
+    if (o.key in cfg.options) {
+      const v = cleanOption(o, cfg.options[o.key]);
+      if (v !== null) out[o.key] = v;
+    }
+  }
+  cfg.options = out;
 }
 
 function newSeed() { return Math.floor(Math.random() * 1e6); }
@@ -374,6 +405,7 @@ async function onReady(m) {
   if (!("seed" in fromHash)) cfg.seed = newSeed();
   if (!meta.themes.includes(cfg.theme)) cfg.theme = "natural";
   if (!meta.charsets.includes(cfg.charset)) cfg.charset = "ascii";
+  sanitizeOptions();
   if (reduceMotion) cfg.paused = true;
   colsChosen = "cols" in fromHash;
   await document.fonts.load(`16px "JetBrains Mono"`).catch(() => {});
