@@ -11,3 +11,5 @@ site/bundle.json
 .playwright-mcp/
 
 .vercel
+site/shots/
+site/gallery.json

@@ -233,6 +233,75 @@ button.copy.done { background: var(--brass); color: var(--glass-in); }
 
 #options:empty::after { content: "This scene has no extra settings."; font-size: 13px; color: var(--lichen); }
 
+/* ------------------------------------------------------------------ gallery */
+.gallery { padding: 28px 20px 0; }
+.gallery-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+}
+.gallery-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  font-variation-settings: "CASL" 1;
+}
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button {
+  padding: 4px 11px;
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid var(--moss);
+  color: var(--lichen);
+  border-radius: 999px;
+}
+.filters button[aria-pressed="true"] { border-color: var(--brass); color: var(--glass); }
+
+.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 18px 16px;
+}
+.card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  white-space: normal;
+}
+.card:hover { background: none; }
+.card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 720 / 520;
+  object-fit: cover;
+  background: var(--glass-in);
+  border: 1px solid var(--moss);
+  border-radius: 10px;
+}
+.card:hover img, .card[aria-current="true"] img { border-color: var(--brass); }
+.card .noshot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 720 / 520;
+  border: 1px dashed var(--moss);
+  border-radius: 10px;
+  color: var(--lichen);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.card-title { display: block; margin-top: 8px; font-weight: 600; font-size: 15px; }
+.card-blurb { display: block; margin-top: 2px; font-size: 13px; color: var(--lichen); line-height: 1.4; }
+.card-mouse { display: block; margin-top: 4px; font-size: 12px; color: var(--brass); }
+
 /* ------------------------------------------------------------------ about */
 .about {
   display: grid;

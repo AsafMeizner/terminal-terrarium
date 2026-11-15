@@ -239,6 +239,7 @@ function setOption(o, value) {
 }
 
 function syncControls() {
+  markCurrentCard();
   const s = sceneMeta();
   $("scene").value = cfg.scene;
   $("blurb").textContent = s.blurb;
@@ -438,6 +439,88 @@ async function onReady(m) {
   setStatus("");
   send(true);
 }
+
+// ------------------------------------------------------------------ gallery
+// Built from gallery.json (made at build time), so it shows before Python has loaded.
+const SECTIONS = [
+  ["Flowers", ["flowers"]],
+  ["Trees & plants", ["plants"]],
+  ["Creatures", ["creatures", "animals"]],
+  ["Water & ocean", ["ocean", "water"]],
+  ["Space", ["space"]],
+  ["Sky, weather & places", ["sky", "weather", "night", "city", "fire"]],
+  ["Abstract & retro", []],
+];
+const sectionOf = (tags) => (SECTIONS.find(([, want]) => !want.length || want.some((t) => tags.includes(t))) || SECTIONS[6])[0];
+
+function openScene(name) {
+  window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  if (ready) setScene(name, { reseed: true });
+  else location.hash = `scene=${encodeURIComponent(name)}`;
+}
+
+function markCurrentCard() {
+  document.querySelectorAll(".card").forEach((c) => c.setAttribute("aria-current", String(c.dataset.scene === cfg.scene)));
+}
+
+(async function buildGallery() {
+  let items = [];
+  try { items = await (await fetch("gallery.json")).json(); } catch { return; }
+  const cards = $("cards");
+  const filters = $("filters");
+  const counts = {};
+  for (const it of items) { it.section = sectionOf(it.tags); counts[it.section] = (counts[it.section] || 0) + 1; }
+  const show = (section) => {
+    cards.querySelectorAll("li").forEach((li) => { li.hidden = section !== "All" && li.dataset.section !== section; });
+    filters.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.section === section)));
+  };
+  for (const name of ["All", ...SECTIONS.map(([s]) => s).filter((s) => counts[s])]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.section = name;
+    b.textContent = name === "All" ? `All ${items.length}` : `${name} ${counts[name]}`;
+    b.addEventListener("click", () => show(name));
+    filters.append(b);
+  }
+  for (const it of items) {
+    const li = document.createElement("li");
+    li.dataset.section = it.section;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "card";
+    btn.dataset.scene = it.name;
+    if (it.shot) {
+      const img = document.createElement("img");
+      img.src = it.shot;
+      img.alt = `${it.title}: ${it.blurb}`;
+      img.loading = "lazy";
+      btn.append(img);
+    } else {
+      const ph = document.createElement("span");
+      ph.className = "noshot";
+      ph.textContent = "no preview yet";
+      btn.append(ph);
+    }
+    const title = document.createElement("span");
+    title.className = "card-title";
+    title.textContent = it.title;
+    const blurb = document.createElement("span");
+    blurb.className = "card-blurb";
+    blurb.textContent = it.blurb;
+    btn.append(title, blurb);
+    if (it.interactions) {
+      const m = document.createElement("span");
+      m.className = "card-mouse";
+      m.textContent = "Reacts to your mouse";
+      btn.append(m);
+    }
+    btn.addEventListener("click", () => openScene(it.name));
+    li.append(btn);
+    cards.append(li);
+  }
+  show("All");
+  markCurrentCard();
+})();
 
 // a little life while Python loads
 (function loadingRamp() {

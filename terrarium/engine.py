@@ -189,6 +189,11 @@ THEMES = {
     "gruvbox": {"kind": "gradient", "stops": [(40, 40, 40), (204, 36, 29), (215, 153, 33), (152, 151, 26), (235, 219, 178)]},
     "catppuccin": {"kind": "gradient", "stops": [(30, 30, 46), (137, 180, 250), (203, 166, 247), (245, 194, 231), (249, 226, 175)]},
     "rainbow": {"kind": "rainbow", "blurb": "hue follows brightness"},
+    # selective color: everything silver-grey except one accent hue ("ASCII but make it cool")
+    "noir": {"kind": "selective", "hue": 0.0, "blurb": "black and white, only reds survive"},
+    "noir-gold": {"kind": "selective", "hue": 0.11, "blurb": "black and white, only golds survive"},
+    "noir-cyan": {"kind": "selective", "hue": 0.52, "blurb": "black and white, only cyans survive"},
+    "noir-rose": {"kind": "selective", "hue": 0.92, "blurb": "black and white, only pinks survive"},
 }
 for _k, _t in THEMES.items():
     _t.setdefault("blurb", "gradient palette" if _t["kind"] == "gradient" else "")
@@ -248,6 +253,14 @@ class ColorFX:
         elif kind == "rainbow":
             h, s, v = _rgb_to_hsv(c)
             out = hsv(_lum(c) * 0.85 + 0.55, 0.75, max(v, 0.15))
+        elif kind == "selective":
+            h, s, v = _rgb_to_hsv(c)
+            dh = abs(((h - th["hue"] + 0.5) % 1.0) - 0.5)        # distance around the color wheel
+            keep = clamp(1 - (dh - 0.035) / 0.04) * clamp((s - 0.2) / 0.25)
+            lum = _lum(c) ** 0.9
+            silver = (lum * 232, lum * 238, lum * 250)              # a cool, slightly blue grey
+            accent = hsv(h, min(1.0, s * 1.25), min(1.0, v * 1.1))
+            out = mix(silver, accent, keep)
         sat = self.sat * th.get("sat", 1.0)
         bright = self.bright * th.get("bright", 1.0)
         if self.hue % 360 or sat != 1.0:

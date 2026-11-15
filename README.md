@@ -94,7 +94,7 @@ your mouse alone.
 
 | flag | what it does |
 |---|---|
-| `-t, --theme NAME` | recolor any scene: `natural` (default), `neon`, `pastel`, `faded`, `sunset`, `ocean`, `forest`, `ember`, `ice`, `vapor`, `aurora`, `candy`, `matrix`, `amber`, `mono`, `nord`, `dracula`, `gruvbox`, `catppuccin`, `rainbow` |
+| `-t, --theme NAME` | recolor any scene: `natural` (default), `neon`, `pastel`, `faded`, `sunset`, `ocean`, `forest`, `ember`, `ice`, `vapor`, `aurora`, `candy`, `matrix`, `amber`, `mono`, `nord`, `dracula`, `gruvbox`, `catppuccin`, `rainbow`, and selective color: `noir` (black and white, only reds survive), `noir-gold`, `noir-cyan`, `noir-rose` |
 | `--charset NAME` | shading characters: `ascii`, `fine`, `soft`, `blocks`, `dots`, `braille`, `lines`, `binary`, `stars` |
 | `--hue DEG`, `--saturation X`, `--brightness X` | global color adjustments |
 | `-s, --speed X` | animation speed |
