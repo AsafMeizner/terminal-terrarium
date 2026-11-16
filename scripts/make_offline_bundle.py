@@ -60,7 +60,8 @@ def build_package(src, out):
 def build_source(src, out):
     dst = os.path.join(out, "source")
     os.makedirs(dst)
-    run(["git", "-C", src, "bundle", "create", os.path.join(dst, "terrarium.bundle"), "--all"])
+    # only the published branch: never other local branches, stashes or experiments
+    run(["git", "-C", src, "bundle", "create", os.path.join(dst, "terrarium.bundle"), "main"])
     run(["git", "-C", src, "archive", "--format=zip", "-o", os.path.join(dst, "terminal-terrarium-source.zip"), "HEAD"])
     shutil.copy(os.path.join(src, "LICENSE"), dst)
 
