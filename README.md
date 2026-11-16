@@ -136,7 +136,7 @@ several of those recreate specific famous games.
 
 <!-- scenes:start -->
 
-**44 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**48 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -162,9 +162,13 @@ several of those recreate specific famous games.
 
 | | scene | |
 |---|---|---|
+| <img src="docs/screenshots/aquarium.png" width="300" alt="aquarium"> | **`aquarium`** | a planted fish tank in depth: schooling tetras, angelfish, a pufferfish, shrimp and a snail<br><sub>options: `species`, `fish`, `rays`</sub> |
 | <img src="docs/screenshots/butterflies.png" width="300" alt="butterflies"> | **`butterflies`** | big patterned butterflies and moths flutter through a night garden and rest on flowers<br><sub>options: `count`, `family`, `flowers`, `trail`</sub> |
+| <img src="docs/screenshots/cat.png" width="300" alt="cat"> | **`cat`** | a cat curled up asleep on a cushion by the window, breathing, dreaming, purring when petted<br><sub>options: `fur`, `weather`</sub> |
 | <img src="docs/screenshots/fishbowl.png" width="300" alt="fishbowl"> | **`fishbowl`** | goldfish drifting in a glass bowl; feed them and they come to eat<br><sub>options: `fish`, `bowl`</sub> |
+| <img src="docs/screenshots/frogs.png" width="300" alt="frogs"> | **`frogs`** | a moonlit pond: frogs croak on lily pads, leap from pad to pad and zap flies<br><sub>options: `frogs`, `fireflies`, `moon`</sub> |
 | <img src="docs/screenshots/murmuration.png" width="300" alt="murmuration"> | **`murmuration`** | a starling murmuration swirls over a sunset lake, bending around a diving falcon<br><sub>options: `birds`, `predator`, `palette`</sub> |
+| <img src="docs/screenshots/owl.png" width="300" alt="owl"> | **`owl`** | an owl on a branch under a big moon: it blinks, hoots, swivels its head and flies<br><sub>options: `species`</sub> |
 | <img src="docs/screenshots/peacock.png" width="300" alt="peacock"> | **`peacock`** | a peacock struts, then fans its train into a full shimmering display of eyespots<br><sub>options: `interval`, `palette`</sub> |
 | <img src="docs/screenshots/seascape.png" width="300" alt="seascape"> | **`seascape`** | a cross-section of the sea: boats and leaping dolphins above, fish and kelp below<br><sub>options: `time`, `boats`, `dolphins`, `fish`</sub> |
 
