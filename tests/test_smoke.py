@@ -219,6 +219,30 @@ class MagicTests(unittest.TestCase):
         with self.assertRaises(magic.MagicError):
             magic.make_scene("x", {"pieces": [{"slug": "x", "category": "arcade"}]})
 
+    def test_offline_mode_never_touches_the_network(self):
+        import json
+        import tempfile
+
+        from terrarium import magic
+
+        with tempfile.TemporaryDirectory() as d:
+            json.dump({"pieces": [{"slug": "a", "name": "A", "category": "x", "note": ""}], "categories": []},
+                      open(os.path.join(d, "index.json"), "w"))
+            open(os.path.join(d, ".offline"), "w").close()
+            old = os.environ.get("TERRARIUM_MAGIC_DIR"), magic.INDEX_URL
+            os.environ["TERRARIUM_MAGIC_DIR"] = d
+            magic.INDEX_URL = "http://192.0.2.1/unreachable.json"  # would hang/fail if contacted
+            try:
+                self.assertTrue(magic.offline())
+                self.assertEqual(magic.cache_dir(), d)
+                self.assertEqual([p["slug"] for p in magic.load_index()["pieces"]], ["a"])
+            finally:
+                if old[0] is None:
+                    os.environ.pop("TERRARIUM_MAGIC_DIR", None)
+                else:
+                    os.environ["TERRARIUM_MAGIC_DIR"] = old[0]
+                magic.INDEX_URL = old[1]
+
     @unittest.skipUnless(os.environ.get("TERRARIUM_TEST_MAGIC") == "1", "set TERRARIUM_TEST_MAGIC=1 (needs Node.js + network)")
     def test_live_piece(self):
         from terrarium import magic

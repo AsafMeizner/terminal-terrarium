@@ -102,6 +102,15 @@ package and cached in `~/.terrarium/magic/`. Two pieces are left out because the
 renderings under the Unsplash license rather than MIT, and so is the arcade category, because
 several of those recreate specific famous games.
 
+### Offline / air-gapped machines
+
+`python scripts/make_offline_bundle.py` (run once, online) builds `dist/terrarium-offline-<date>.zip`:
+the package wheel, the whole ASCII Magic library pre-downloaded, portable Node.js and Pillow wheels
+for Windows and Linux, the website with Pyodide included, the source and git history, and an
+installer (`install-windows.bat` / `install-linux.sh`). Copy it to the offline machine, unzip, and
+run the installer. Nothing there touches the internet. Details are in
+[offline/README-OFFLINE.md](offline/README-OFFLINE.md).
+
 ### Keys while it runs
 
 | key | | key | |

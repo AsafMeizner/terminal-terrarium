@@ -17,6 +17,7 @@ async function fetchCached(rel) {
   try {
     return [file, await readFile(file, "utf8")];
   } catch {
+    if (cdn === "offline") throw new Error(`${rel} is not in the offline library`);
     const res = await fetch(`${cdn}/${rel}`);
     if (!res.ok) throw new Error(`download failed (${res.status}) for ${rel}`);
     const src = await res.text();

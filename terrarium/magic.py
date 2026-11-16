@@ -36,16 +36,39 @@ for _ramp in (" ░▒▓█", " .:-=+*#%@", " ·∙•●", " .·oO@"):
 
 
 def cache_dir():
-    return os.path.join(os.path.expanduser("~"), ".terrarium", "magic", VERSION)
+    """Where pieces are cached. TERRARIUM_MAGIC_DIR points at a ready-made library folder instead
+    (e.g. the one in the offline bundle)."""
+    return os.environ.get("TERRARIUM_MAGIC_DIR") or os.path.join(
+        os.path.expanduser("~"), ".terrarium", "magic", VERSION)
+
+
+def offline():
+    """True when we must never touch the network: TERRARIUM_OFFLINE=1, or a `.offline` marker file
+    in the library folder (the offline bundle's installer creates it)."""
+    return os.environ.get("TERRARIUM_OFFLINE") == "1" or os.path.exists(os.path.join(cache_dir(), ".offline"))
 
 
 def node_path():
+    """Node.js: TERRARIUM_NODE, then a portable copy in ~/.terrarium/node/, then PATH."""
+    env = os.environ.get("TERRARIUM_NODE")
+    if env and os.path.isfile(env):
+        return env
+    home = os.path.join(os.path.expanduser("~"), ".terrarium", "node")
+    for cand in (os.path.join(home, "node.exe"), os.path.join(home, "bin", "node")):
+        if os.path.isfile(cand):
+            return cand
     return shutil.which("node")
 
 
 def load_index(max_age_days=7):
     """The piece list (name, category, note...). Downloaded from the terrarium site and cached."""
     path = os.path.join(cache_dir(), "index.json")
+    if offline():
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except OSError:
+            return {"pieces": [], "categories": []}
     try:
         if time.time() - os.path.getmtime(path) < max_age_days * 86400:
             with open(path, encoding="utf-8") as f:
@@ -112,7 +135,7 @@ class MagicScene(Scene):
         os.makedirs(cache_dir(), exist_ok=True)
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         self._proc = subprocess.Popen(
-            [node, BRIDGE, self.piece, cache_dir(), CDN],
+            [node, BRIDGE, self.piece, cache_dir(), "offline" if offline() else CDN],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             text=True, encoding="utf-8", bufsize=1, creationflags=flags,
         )
