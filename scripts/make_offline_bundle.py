@@ -131,6 +131,7 @@ def write_docs(src, out, commit, n_scenes, n_pieces):
     open(os.path.join(out, "README-OFFLINE.md"), "w", encoding="utf-8", newline="\n").write(tpl)
     shutil.copy(os.path.join(src, "offline", "install.py"), out)
     shutil.copy(os.path.join(src, "offline", "install-linux.sh"), out)
+    shutil.copy(os.path.join(src, "offline", "serve-website.py"), out)
     bat = open(os.path.join(src, "offline", "install-windows.bat"), encoding="utf-8").read()
     open(os.path.join(out, "install-windows.bat"), "w", encoding="utf-8", newline="\r\n").write(bat.replace("\r\n", "\n"))
 

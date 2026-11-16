@@ -9,6 +9,11 @@ in a normal terminal. Built from commit `{COMMIT}` on {DATE}.
 - Nothing else. Node.js, used only by the optional ASCII Magic library pieces, is included
   for x64 Windows and Linux.
 
+## Unzip
+
+Windows: right-click the zip, then **Extract All**. Linux: `unzip terrarium-offline-*.zip`, or if
+there's no `unzip`, `python3 -m zipfile -e terrarium-offline-*.zip .`
+
 ## Install
 
 **Windows**: double-click `install-windows.bat`, or in a terminal:
@@ -49,14 +54,15 @@ on your PATH).
 ## The website, offline
 
 `website/` is the full playground (every scene and setting, plus the library gallery) with
-Python-in-the-browser (Pyodide) included, so it needs no internet. Serve it locally:
+Python-in-the-browser (Pyodide) included, so it needs no internet. Serve it on this computer:
 
 ```sh
-python -m http.server 8000 -d website
+python serve-website.py          # then open http://localhost:8000
 ```
 
-then open <http://localhost:8000> in a browser. (Opening `index.html` straight from disk doesn't
-work: browsers only run its background worker over http.)
+Use `serve-website.py` rather than `python -m http.server`: on Windows the plain server labels
+some files with the wrong type and the page never starts. Opening `index.html` straight from disk
+doesn't work either, because browsers only run its background worker over http.
 
 ## What's in here
 
