@@ -20,7 +20,7 @@ GIFS = os.path.join(ROOT, "docs", "gifs")
 
 # Animated previews at the top of the README. Keep this list short: GIFs are heavy.
 HIGHLIGHTS = ["jellyfish", "lilies", "bonsai", "timelapse", "fireworks", "whale", "butterflies",
-              "aurora", "volcano", "koi", "campfire", "lavalamp"]
+              "aurora", "volcano", "koi", "campfire", "lavalamp", "knight", "yinyang", "fishbowl"]
 
 # Seconds to simulate before capturing, for scenes that grow or bloom.
 WARMUP = {"bonsai": 40, "rose": 22, "seasons": 20, "sakura": 10, "snow": 30, "life": 6,

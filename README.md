@@ -31,6 +31,9 @@ This repo has two parts:
   <img src="docs/gifs/fireworks.gif" width="32%" alt="fireworks">
   <img src="docs/gifs/lanterns.gif" width="32%" alt="sky lanterns">
   <img src="docs/gifs/lavalamp.gif" width="32%" alt="lava lamp">
+  <img src="docs/gifs/knight.gif" width="32%" alt="kneeling knight with a red cape">
+  <img src="docs/gifs/yinyang.gif" width="32%" alt="two koi in a yin-yang">
+  <img src="docs/gifs/fishbowl.gif" width="32%" alt="fishbowl">
 </p>
 
 > The previews are rendered straight from the code with `--record`, at a small size. In a real
@@ -136,7 +139,7 @@ several of those recreate specific famous games.
 
 <!-- scenes:start -->
 
-**48 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**50 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -171,6 +174,7 @@ several of those recreate specific famous games.
 | <img src="docs/screenshots/owl.png" width="300" alt="owl"> | **`owl`** | an owl on a branch under a big moon: it blinks, hoots, swivels its head and flies<br><sub>options: `species`</sub> |
 | <img src="docs/screenshots/peacock.png" width="300" alt="peacock"> | **`peacock`** | a peacock struts, then fans its train into a full shimmering display of eyespots<br><sub>options: `interval`, `palette`</sub> |
 | <img src="docs/screenshots/seascape.png" width="300" alt="seascape"> | **`seascape`** | a cross-section of the sea: boats and leaping dolphins above, fish and kelp below<br><sub>options: `time`, `boats`, `dolphins`, `fish`</sub> |
+| <img src="docs/screenshots/yinyang.png" width="300" alt="yinyang"> | **`yinyang`** | a white koi and a golden koi chasing each other around a swirling yin-yang vortex<br><sub>options: `vortex`, `water`, `speed`, `fins`, `sparkle`</sub> |
 
 ### Water & ocean
 
@@ -205,6 +209,7 @@ several of those recreate specific famous games.
 | <img src="docs/screenshots/dragon.png" width="300" alt="dragon"> | **`dragon`** | an eastern dragon chasing a glowing pearl through moonlit clouds<br><sub>options: `color`, `clouds`</sub> |
 | <img src="docs/screenshots/fireflies.png" width="300" alt="fireflies"> | **`fireflies`** | fireflies blinking over a summer meadow at the edge of a forest<br><sub>options: `count`, `color`</sub> |
 | <img src="docs/screenshots/fireworks.png" width="300" alt="fireworks"> | **`fireworks`** | a fireworks show over a lake or a harbour city, with smoke, reflections and a finale<br><sub>options: `intensity`, `finale`, `backdrop`, `palette`</sub> |
+| <img src="docs/screenshots/knight.png" width="300" alt="knight"> | **`knight`** | a kneeling knight in silver plate, his red cape streaming in a wind full of ash<br><sub>options: `armor`, `helm`, `cape`, `sword`, `ash`, `wind`, `ruins`</sub> |
 | <img src="docs/screenshots/rain.png" width="300" alt="rain"> | **`rain`** | night rain over a city, with splashes, ripples and lightning<br><sub>options: `intensity`, `wind`, `lightning`, `skyline`</sub> |
 | <img src="docs/screenshots/skyline.png" width="300" alt="skyline"> | **`skyline`** | a city skyline time-lapse: day to night, windows lighting up, traffic streaming below<br><sub>options: `cycle`, `density`, `start`, `clouds`</sub> |
 | <img src="docs/screenshots/snow.png" width="300" alt="snow"> | **`snow`** | snow falling softly over moonlit hills and a cabin with a warm window<br><sub>options: `amount`, `wind`, `cabin`</sub> |
@@ -345,6 +350,10 @@ Know a great one that's missing? Open a PR and add a row.
 - **The spark:** [@arimecoa's "ASCII lily bouquet" reel](https://www.instagram.com/reel/De1IvFqSihx/),
   and the wave of "vibe-coded" ASCII jellyfish, flowers and bonsai going around in 2026. The
   `lilies` scene is a tribute to it.
+- **More reels that shaped scenes:** @arimecoa's ASCII knight ("ASCII but make it cool") inspired
+  `knight` and the `noir` themes; [@buildmeri's "Koi with Python"](https://www.instagram.com/reel/DfZ9psDuZnE/)
+  inspired `yinyang`; [@stephenz.mp4's ASCII-animals tutorial](https://www.instagram.com/reel/Dfv29ZozCr2/)
+  inspired the creature toolkit, `fishbowl` and [docs/ANIMALS.md](docs/ANIMALS.md). All original code.
 - **Ideas these scenes build on.** No code was copied from any of them; every scene here is an
   original implementation:
   - `bonsai`, `sakura`: the tradition of [cbonsai](https://gitlab.com/jallbrit/cbonsai) and [csakura](https://github.com/realstrawhat/csakura)
