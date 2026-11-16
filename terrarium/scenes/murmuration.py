@@ -33,6 +33,7 @@ class Murmuration(Scene):
     title = "Murmuration"
     blurb = "a starling murmuration swirls over a sunset lake, bending around a diving falcon"
     tags = ("nature", "creatures", "sky", "calm", "sunset")
+    interactions = "point to make the flock swerve around you, click to send the falcon diving there"
     options = {
         "birds": (0, "number of starlings (0 = based on screen size)"),
         "predator": (True, "a falcon dives through now and then"),
@@ -91,6 +92,7 @@ class Murmuration(Scene):
         # falcon
         self.fal = None
         self.fal_timer = rng.uniform(6, 14)
+        self.fal_target = None   # where a click told the falcon to dive (stretched coords)
         self.frame = 0
         self.ripple = [rng.uniform(-1, 1) for _ in range(97)]
 
@@ -213,6 +215,22 @@ class Murmuration(Scene):
             self.reeds.append((x, rng.uniform(1.5, max(2.0, (h - hz) * 0.75)), rng.uniform(-0.4, 0.4), rng.uniform(0, TAU),
                                rng.random() < 0.35))
 
+    def on_click(self, x, y):
+        w = self.w
+        top, bot = self.sky_box
+        tx = clamp(x if x == x else w / 2, 0, w - 1)
+        ty = clamp((y if y == y else 0) * ASPECT, top, bot)
+        self.fal_target = (tx, ty)
+        sp = self.speed * 2.3
+        if self.fal is None:
+            # stoop in from high up on the far side
+            side = 1 if tx < w / 2 else -1
+            fx, fy = tx + side * w * 0.45, top - 6
+            d = math.hypot(tx - fx, ty - fy) or 1
+            self.fal = [fx, fy, (tx - fx) / d * sp, (ty - fy) / d * sp, 0.0, 0.0]
+        else:
+            self.fal[4] = 0.0     # already out hunting: wheel round toward the click
+
     # ------------------------------------------------------------------ update
     def update(self, dt):
         super().update(dt)
@@ -233,7 +251,7 @@ class Murmuration(Scene):
         self.atts = atts
         # falcon
         fal = self.fal
-        if self.opt("predator"):
+        if self.opt("predator") or fal is not None:
             if fal is None:
                 self.fal_timer -= dt
                 if self.fal_timer <= 0 and n:
@@ -250,7 +268,18 @@ class Murmuration(Scene):
                 fal[1] += fal[3] * dt
                 fal[4] += dt
                 fal[5] += dt * 7
-                if fal[4] < 2.2 and n:
+                tg = self.fal_target
+                if tg is not None:
+                    # a clicked dive: home hard on the spot, then sweep on through
+                    dx, dy = tg[0] - fal[0], tg[1] - fal[1]
+                    d = math.hypot(dx, dy) or 1
+                    sp = max(self.speed * 2.3, math.hypot(fal[2], fal[3]))
+                    k = min(1.0, dt * 4.0)
+                    fal[2] += (dx / d * sp - fal[2]) * k
+                    fal[3] += (dy / d * sp - fal[3]) * k
+                    if d < 3.0 or fal[4] > 4.0:
+                        self.fal_target = None
+                elif fal[4] < 2.2 and n:
                     # home on the nearest part of the flock for a moment
                     b = birds[int(fal[4] * 97) % n]
                     dx, dy = b[0] - fal[0], b[1] - fal[1]
@@ -258,7 +287,8 @@ class Murmuration(Scene):
                     sp = math.hypot(fal[2], fal[3])
                     fal[2] += (dx / d * sp - fal[2]) * dt * 0.8
                     fal[3] += (dy / d * sp - fal[3]) * dt * 0.8
-                if fal[0] < -20 or fal[0] > w + 20 or fal[1] < top - 30 or fal[1] > bot + 10 or fal[4] > 12:
+                if self.fal_target is None and (fal[0] < -20 or fal[0] > w + 20 or fal[1] < top - 30
+                                                or fal[1] > bot + 10 or fal[4] > 12):
                     self.fal = fal = None
                     self.fal_timer = rng.uniform(10, 22)
         # spatial hash
@@ -283,6 +313,11 @@ class Murmuration(Scene):
         self.frame += 1
         big = n > 300
         order = ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1))
+        ptr = self.pointer
+        if ptr is not None:   # the pointer is a hawk the flock swerves around
+            ppx, ppy = ptr[0], ptr[1] * ASPECT
+            pr = max(9.0, min(w, bot) * 0.16)
+            pr2 = pr * pr
         for i, b in enumerate(birds):
             x, y, vx, vy = b[0], b[1], b[2], b[3]
             if not big or (i & 1) == par:
@@ -344,6 +379,14 @@ class Murmuration(Scene):
                     ax_ += (2 - x) * 1.5
                 elif x > w - 2:
                     ax_ -= (x - w + 2) * 1.5
+                if ptr is not None:
+                    dx, dy = x - ppx, y - ppy
+                    d2 = dx * dx + dy * dy
+                    if d2 < pr2:
+                        d = math.sqrt(d2) + 0.3
+                        k = (pr + 0.5 - d) * 14 / d
+                        ax_ += dx * k
+                        ay_ += dy * k
                 if fal is not None:
                     dx, dy = x - fal[0], y - fal[1]
                     d2 = dx * dx + dy * dy

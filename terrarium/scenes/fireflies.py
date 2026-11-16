@@ -33,6 +33,8 @@ class Bug:
         self.color = color
         self.x = self.bx
         self.y = self.by
+        self.pull = 0.0                        # 0 free .. 1 circling the pointer's lantern
+        self.orbit = 2.5 + (self.s1 % 997) / 997 * 6.5   # how close it circles (no extra dice: keeps seeds stable)
 
 
 class Fireflies(Scene):
@@ -40,6 +42,7 @@ class Fireflies(Scene):
     title = "Fireflies"
     blurb = "fireflies blinking over a summer meadow at the edge of a forest"
     tags = ("night", "nature", "calm", "summer")
+    interactions = "point to hold up a lantern they drift toward, click to set off a swarm flashing in sync"
     options = {
         "count": (0, "number of fireflies (0 = based on screen size)"),
         "color": ("random", "random, yellow, green, blue, amber or mixed"),
@@ -111,7 +114,38 @@ class Fireflies(Scene):
             bottom = hz + (h - hz) * (0.3 + 0.6 * depth)
             self.bugs.append(Bug(rng, w, top, bottom, rng.choice(pal), depth))
         self.bugs.sort(key=lambda b: b.depth)
+        self.n_base = len(self.bugs)
+        self.pal = pal
         self._bgkey = None
+
+    # ------------------------------------------------------------------ mouse
+    def on_click(self, x, y):
+        rng = self.rng
+        w, h, t = self.w, self.h, self.t
+        x = clamp(x if x == x else w / 2, 0, w - 1)
+        y = clamp(y if y == y else h / 2, 0, h - 1)
+        period = rng.uniform(2.2, 3.2)
+        phase = (0.02 - t / period) % 1.0          # all of them light up right now, together
+        swarm = []
+        for _ in range(rng.randint(10, 16)):
+            b = Bug(rng, w, y - 1, y + 1, rng.choice(self.pal), rng.random())
+            a = rng.uniform(0, math.tau)
+            r = math.sqrt(rng.random()) * max(6.0, w * 0.08)
+            b.bx, b.by = x + math.cos(a) * r, y + math.sin(a) * r / ASPECT
+            # their wandering starts centred on the click, not on a random offset
+            b.bx -= noise1(t * b.speed, b.s1) * 9 * (0.5 + b.depth)
+            b.by -= noise1(t * b.speed * 1.3, b.s2) * 3.5 * (0.5 + b.depth) + math.sin(t * 0.7 + b.s1) * 0.6
+            swarm.append(b)
+        # fireflies already nearby catch the rhythm too
+        reach = max(10.0, w * 0.15)
+        for b in self.bugs + swarm:
+            if b in swarm or math.hypot(b.x - x, (b.y - y) * ASPECT) < reach:
+                b.period = period
+                b.phase = phase + rng.uniform(-0.01, 0.01)
+                b.on = 0.42
+        extra = self.bugs[self.n_base:] + swarm
+        self.bugs = self.bugs[:self.n_base] + extra[-48:]     # keep the meadow from overfilling
+        self.bugs.sort(key=lambda b: b.depth)
 
     # ------------------------------------------------------------------ static layer
     def paint_static(self, b):
@@ -208,6 +242,8 @@ class Fireflies(Scene):
         super().update(dt)
         t = self.t
         w, h = self.w, self.h
+        p = self.pointer
+        reach = max(14.0, min(w, h * ASPECT) * 0.45)    # how far the lantern's light carries
         for b in self.bugs:
             # smooth wandering: slow noise around a drifting home position
             b.bx += noise1(t * 0.05, b.s1 + 7) * dt * 1.5
@@ -217,6 +253,27 @@ class Fireflies(Scene):
                 b.bx -= w + 10
             b.x = b.bx + noise1(t * b.speed, b.s1) * 9 * (0.5 + b.depth)
             b.y = b.by + noise1(t * b.speed * 1.3, b.s2) * 3.5 * (0.5 + b.depth) + math.sin(t * 0.7 + b.s1) * 0.6
+            if p is not None or b.pull > 0.0:
+                want = 0.0
+                if p is not None:
+                    d = math.hypot(b.x - p[0], (b.y - p[1]) * ASPECT)
+                    if d < reach * (1.6 if b.pull > 0.2 else 1.0):
+                        want = 0.85
+                b.pull += (want - b.pull) * min(1.0, dt * (0.7 if want else 0.35))
+                if b.pull < 0.005 and not want:
+                    b.pull = 0.0
+                if b.pull > 0.0:
+                    lx, ly = p if p is not None else (b.x, b.y)
+                    if p is not None:
+                        b.lx, b.ly = lx, ly
+                    else:
+                        lx, ly = getattr(b, "lx", b.x), getattr(b, "ly", b.y)
+                    a = t * (0.5 + b.speed * 2) * (1 if b.s1 % 2 else -1) + b.s2
+                    ox = lx + math.cos(a) * b.orbit
+                    oy = ly + math.sin(a) * b.orbit / ASPECT
+                    e = b.pull * b.pull * (3 - 2 * b.pull)
+                    b.x += (ox - b.x) * e
+                    b.y += (oy - b.y) * e
 
     def brightness(self, b):
         p = ((self.t / b.period) + b.phase) % 1.0
@@ -252,6 +309,15 @@ class Fireflies(Scene):
                     ch = "'" if gh % 1 > 0.5 else ","
                 c = mix((15, 45, 25), (45, 110, 60), r / max(1, rows))
                 put(x, y, ch, c, level=0.2)
+        # the pointer's lantern: a small warm glow
+        p = self.pointer
+        if p is not None:
+            px, py = p
+            for y in range(max(0, int(py - 3)), min(h, int(py + 4))):
+                for x in range(max(0, int(px - 6)), min(w, int(px + 7))):
+                    g = math.exp(-((x + 0.5 - px) ** 2 + ((y + 0.5 - py) * ASPECT) ** 2) / 9.0) * 0.45
+                    if g > 0.05 and g > lv[y * w + x]:
+                        put(x, y, HALO[min(2, int(g * 6))], scale((255, 200, 120), 0.35 + g), level=g)
         # fireflies: a bright core with a soft halo
         for b in self.bugs:
             v = self.brightness(b)

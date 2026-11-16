@@ -86,6 +86,7 @@ class Kaleidoscope(Scene):
     title = "Kaleidoscope"
     blurb = "a breathing N-fold mandala of mirrored glass in drifting jewel tones"
     tags = ("abstract", "colorful", "calm", "trippy")
+    interactions = "point to turn the tube and slide the glass, click to tumble in a new mandala"
     options = {
         "symmetry": (0, "number of mirrored folds, 3-16 (0 = random 5-12)"),
         "palette": ("random", "random, jewel, peacock, fireopal, amethyst, lagoon, sunset, emerald or rainbow"),
@@ -95,8 +96,16 @@ class Kaleidoscope(Scene):
     def setup(self):
         rng = self.rng
         w, h = self.w, self.h
-        n = self.opt("symmetry")
+        n = getattr(self, "next_n", 0) or self.opt("symmetry")
         self.n = max(3, min(16, n)) if n > 0 else rng.randint(5, 12)
+        self.next_n = 0
+        if not hasattr(self, "turn"):
+            # mouse state: the pointer turns the tube and slides the loose glass; a click tumbles it
+            self.turn = 0.0          # extra rotation (radians), eased toward the pointer's angle
+            self.turn_v = 0.0        # spin kick from a click, decays
+            self.slide = [0.0, 0.0]  # glass offset, eased toward the pointer
+            self.grab = None         # pointer angle on arrival, so the tube doesn't jump
+            self.morph = None        # seconds into a click's collapse-and-bloom
         self.seg = TAU / self.n
         self.half = self.seg / 2
         pal = self.opt("palette")
@@ -178,6 +187,53 @@ class Kaleidoscope(Scene):
                 rows.append(ir * na)
                 thetas.append(math.atan2(dy, dx) % TAU)
         self.thetas, self.rows, self.skip = thetas, rows, skip
+
+    # ------------------------------------------------------------------ mouse
+    MORPH = 1.6   # seconds for a click's collapse (first half) and bloom (second half)
+
+    def on_click(self, x, y):
+        if self.morph is None:
+            self.morph = 0.0
+            self.turn_v += 2.5 if self.spin >= 0 else -2.5
+
+    def zoom(self):
+        """1 normally; dips to ~0 mid-tumble so the mandala collapses into its jewel and re-blooms."""
+        if self.morph is None:
+            return 1.0
+        p = abs(1.0 - 2.0 * self.morph / self.MORPH)
+        return max(0.03, p * p * (3 - 2 * p))
+
+    def update(self, dt):
+        super().update(dt)
+        p = self.pointer
+        if p is not None:
+            dx, dy = p[0] - self.cx, (p[1] - self.cy) * ASPECT
+            ang = math.atan2(dy, dx)
+            if self.grab is None:
+                self.grab = ang - self.turn
+            diff = (ang - self.grab - self.turn + math.pi) % TAU - math.pi
+            self.turn += diff * min(1.0, dt * 3.0)
+            k = min(1.0, dt * 1.5)
+            R = self.R
+            self.slide[0] += (clamp(dx / R, -1.5, 1.5) * 0.35 - self.slide[0]) * k
+            self.slide[1] += (clamp(dy / R, -1.5, 1.5) * 0.35 - self.slide[1]) * k
+        else:
+            self.grab = None
+        if self.turn_v:
+            self.turn += self.turn_v * dt
+            self.turn_v *= max(0.0, 1.0 - dt * 1.8)
+            if abs(self.turn_v) < 0.01:
+                self.turn_v = 0.0
+        if self.morph is not None:
+            before = self.morph
+            self.morph += dt
+            if before < self.MORPH / 2 <= self.morph:
+                # fully collapsed: roll a whole new mandala with a different symmetry
+                pick = [k for k in range(5, 13) if k != self.n]
+                self.next_n = self.opt("symmetry") or self.rng.choice(pick)
+                self.setup()
+            if self.morph >= self.MORPH:
+                self.morph = None
 
     # ------------------------------------------------------------------ pattern
     def motif(self, B, r, an, r0, r1, sp, pulse, t):
@@ -314,7 +370,7 @@ class Kaleidoscope(Scene):
         hue_t = self.hue0 + t * self.hue_drift
         gr = t * self.glass_rot
         gca, gsa = cos(gr) * self.glass_sc, sin(gr) * self.glass_sc
-        gvx, gvy = self.glass_v[0] * t, self.glass_v[1] * t
+        gvx, gvy = self.glass_v[0] * t + self.slide[0], self.glass_v[1] * t + self.slide[1]
         glass = self.glass
         glass_lvl = 0.66 + 0.04 * sin(t * 0.21)
         live = []
@@ -326,8 +382,9 @@ class Kaleidoscope(Scene):
         chs, fgs, lvs = [], [], []
         ach, afg, alv = chs.append, fgs.append, lvs.append
         rmax = self.rmax
+        zoom = self.zoom()
         for ir in range(nr):
-            r = (ir + 0.5) / nr * rmax
+            r = (ir + 0.5) / nr * rmax / zoom
             mine = [L for L in live if L[1] - 0.12 <= r <= L[2] + 0.06]
             if disc:
                 env = clamp((1.08 - r) / 0.1)
@@ -403,7 +460,7 @@ class Kaleidoscope(Scene):
             return
         chs, fgs, lvs = self.table(cv)
         t = self.t * self.opt("speed")
-        rot = t * self.spin
+        rot = t * self.spin + self.turn
         seg, half, abin = self.seg, self.half, self.abin
         na1 = self.na - 1
         ks = []

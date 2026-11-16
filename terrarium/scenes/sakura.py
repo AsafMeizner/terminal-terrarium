@@ -100,6 +100,7 @@ class Sakura(Scene):
     title = "Sakura"
     blurb = "a cherry tree on a hill at dusk, petals swirling in gusty wind"
     tags = ("nature", "plants", "japan", "calm", "wind")
+    interactions = "sweep the pointer to blow the petals around, click to shake the tree"
     options = {
         "petals": (1.0, "amount of drifting petals"),
         "wind": (1.0, "wind strength"),
@@ -149,6 +150,31 @@ class Sakura(Scene):
         n = int(self.count(160) * max(0.0, self.opt("petals")))
         self.petals = [self.spawn(initial=True) for _ in range(n)]
         self.gust = 0.0
+        self.flurry = []        # extra petals shaken loose by a click; they don't respawn
+        self.shake = 0.0        # 1 right after a click, decays: the canopy trembles
+        self.last_ptr = None
+        self.pvel = (0.0, 0.0)  # smoothed pointer velocity (cells/s): moving it is the wind
+
+    def on_click(self, x, y):
+        rng = self.rng
+        self.shake = 1.0
+        if not self.canopy:
+            return
+        x = x if x == x else self.hx
+        y = y if y == y else self.h / 2
+        near = [c for c in self.canopy if abs(c[0] - x) < 12 and abs(c[1] - y) < 6]
+        src = near if len(near) >= 10 else self.canopy
+        for _ in range(rng.randint(130, 170)):
+            px, py, *_ = rng.choice(src)
+            pt = self.spawn()
+            pt[0], pt[1] = px + rng.uniform(-0.5, 0.5), py + rng.uniform(-0.5, 0.5)
+            a = rng.uniform(0, TAU)
+            sp = rng.uniform(4.0, 14.0)
+            pt[2], pt[3] = math.cos(a) * sp + self.wdir * 2.0, abs(math.sin(a)) * sp * 0.3 + 1.0
+            pt[6] = mix(pt[6], (255, 250, 252), 0.45)    # fresh petals catch the light
+            pt[7] = 1.25
+            self.flurry.append(pt)
+        del self.flurry[:-500]
 
     # -- static layers --------------------------------------------------------------
     def build_sky(self):
@@ -343,11 +369,39 @@ class Sakura(Scene):
         g = noise1(t * 0.18, self.seed + 4) * 0.5 + 0.5
         self.gust = clamp((g - 0.35) * 1.8) ** 1.5
         base = W * (1.2 + 5.0 * self.gust) * self.wdir
+        # the pointer: sweeping it is a breeze that drags nearby petals along
+        ptr = self.pointer
+        if ptr is not None and self.last_ptr is not None and dt > 0:
+            vx = clamp((ptr[0] - self.last_ptr[0]) / dt, -60, 60)
+            vy = clamp((ptr[1] - self.last_ptr[1]) / dt, -30, 30)
+        else:
+            vx = vy = 0.0
+        self.last_ptr = ptr
+        k = min(1.0, dt * 5.0)
+        self.pvel = (self.pvel[0] + (vx - self.pvel[0]) * k, self.pvel[1] + (vy - self.pvel[1]) * k)
+        self.shake = max(0.0, self.shake - dt * 0.9)
+        self.petals = self.step_petals(self.petals, dt, base, W, True, 1.6, 0.0)
+        self.flurry = self.step_petals(self.flurry, dt, base, W, False, 0.45, 1.6)
+        w = self.w
+        pile = self.pile
+        # wind slowly scatters the pile so it never grows without bound
+        k = dt * 0.015 * (1 + 3 * self.gust * W)
+        for i in range(w):
+            if pile[i] > 0:
+                pile[i] = max(0.0, pile[i] - k * pile[i])
+
+    def step_petals(self, petals, dt, base, W, respawn, follow, sink):
+        t = self.t
         w, h = self.w, self.h
         s = self.seed
         hill = self.hill
         pile = self.pile
-        for p in self.petals:
+        ptr = self.pointer
+        pvx, pvy = self.pvel
+        reach = max(7.0, w * 0.09)
+        stir = abs(pvx) + abs(pvy) > 0.5
+        keep = []
+        for p in petals:
             x, y = p[0], p[1]
             # curl of a drifting noise field makes eddies and swirls
             nx, ny = x * 0.06 - t * 0.35 * (0.5 + W), y * 0.14 + t * 0.05
@@ -356,25 +410,39 @@ class Sakura(Scene):
             dndx = (noise2(nx + e, ny, s) - noise2(nx - e, ny, s))
             sw = 2.5 * (0.4 + W * 0.6) * (0.6 + self.gust)
             tvx = base + dndy * sw * 2.2
-            tvy = 0.85 - dndx * sw * 0.7 - self.gust * W * 0.25
-            p[2] += (tvx - p[2]) * min(1.0, dt * 1.6)
-            p[3] += (tvy - p[3]) * min(1.0, dt * 1.6)
+            tvy = 0.85 + sink - dndx * sw * 0.7 - self.gust * W * 0.25
+            if ptr is not None:
+                dx, dy = x - ptr[0], (y - ptr[1]) * ASPECT
+                if -reach < dx < reach and -reach < dy < reach:
+                    d = math.sqrt(dx * dx + dy * dy)
+                    if d < reach:
+                        f = 1 - d / reach
+                        if stir:      # carried along by the sweep
+                            tvx += pvx * f * 1.6
+                            tvy += pvy * f * 1.6
+                        else:         # a resting pointer stirs a small eddy
+                            tvx += -dy / (d + 1) * f * 4
+                            tvy += dx / (d + 1) * f * 2
+            p[2] += (tvx - p[2]) * min(1.0, dt * follow)
+            p[3] += (tvy - p[3]) * min(1.0, dt * follow)
             p[0] = x + p[2] * dt
             p[1] = y + p[3] * dt
             p[4] += p[5] * dt * (0.5 + 0.5 * self.gust)
             xi = int(p[0])
-            if p[0] >= w + 8 or p[1] < -6 or p[0] < -8:
-                p[:] = self.spawn()
+            if p[0] >= w + 8 or p[1] < -6 or p[0] < -8 or p[1] > h + 4:
+                if respawn:
+                    p[:] = self.spawn()
+                    keep.append(p)
                 continue
             if 0 <= xi < w and p[1] >= hill[xi] - pile[xi] * 0.5:
                 if pile[xi] < 2.6:
                     pile[xi] += 0.35
-                p[:] = self.spawn()
-        # wind slowly scatters the pile so it never grows without bound
-        k = dt * 0.015 * (1 + 3 * self.gust * W)
-        for i in range(w):
-            if pile[i] > 0:
-                pile[i] = max(0.0, pile[i] - k * pile[i])
+                if respawn:
+                    p[:] = self.spawn()
+                    keep.append(p)
+                continue
+            keep.append(p)
+        return keep
 
     # -- drawing ------------------------------------------------------------------
     def draw(self, cv):
@@ -396,7 +464,7 @@ class Sakura(Scene):
         self.draw_canopy(cv)
         self.draw_pile(cv)
         chs = cv.ch
-        for x, y, vx, vy, ph, spin, col, b in self.petals:
+        for x, y, vx, vy, ph, spin, col, b in self.petals + self.flurry:
             xi, yi = int(x), int(y)
             if 0 <= xi < w and 0 <= yi < h and chs[yi * w + xi] in DISC:
                 continue   # behind the sun / moon disc
@@ -491,12 +559,14 @@ class Sakura(Scene):
         W = max(0.0, self.opt("wind"))
         gust = self.gust
         sway_amp = (0.25 + 1.1 * gust) * (0.4 + 0.6 * W) * self.wdir
+        sway_amp += clamp(self.pvel[0] * 0.05, -1.2, 1.2)        # a pointer sweep sways the boughs
+        shake = self.shake * self.shake * 2.2 * math.sin(t * 31.0)
         top = self.canopy_top
         h = self.h
         span = max(1.0, self.w * 0.3)
         for x, y, lvl, sh, hot, dx in self.canopy:
             reach = clamp(dx / span) * 0.6 + clamp((h - y) / h) * 0.6
-            sway = sway_amp * reach * (0.6 + 0.4 * math.sin(t * 1.3 + y * 0.4 + x * 0.05))
+            sway = (sway_amp * (0.6 + 0.4 * math.sin(t * 1.3 + y * 0.4 + x * 0.05)) + shake) * reach
             xi = int(x + sway)
             ripple = math.sin(x * 0.21 - t * (1.5 + 2.5 * gust) + y * 0.35)
             v = lvl * (0.92 + 0.12 * ripple)

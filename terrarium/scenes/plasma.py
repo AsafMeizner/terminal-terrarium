@@ -1,7 +1,7 @@
 """Demoscene plasma: interfering sine fields poured through slowly cycling palettes."""
 import math
 
-from ..engine import ASPECT, Scene, clamp, gradient, hsv
+from ..engine import ASPECT, Scene, clamp, gradient, hsv, smoothstep
 
 # Cyclic palettes: the last stop flows back into the first.
 PALETTES = {
@@ -40,6 +40,7 @@ class Plasma(Scene):
     title = "Plasma"
     blurb = "demoscene plasma: interfering sine waves through cycling palettes"
     tags = ("abstract", "retro", "colorful")
+    interactions = "point to pull the ripples along, click to pour in a new palette"
     options = {
         "palette": ("random", "vapor, fire, ocean, toxic, candy, aurora, rainbow or random"),
         "scale": (0.0, "wave frequency, bigger = finer ripples (0 = random)"),
@@ -85,15 +86,61 @@ class Plasma(Scene):
         self.seeds = [rng.uniform(0, 100) for _ in range(10)]
         # Fixed color table indexed by hue*NV + brightness; cycling only re-maps hue bins.
         self.table_ramp = None
-        self.colors = []
+        self.colors = self._colors(stops)
+        if not hasattr(self, "pull"):
+            # mouse state: the pointer drags ripple A, a click drops ripple B and fades palettes
+            self.pull = 0.0                # 0 = ripple A wanders, 1 = it follows the pointer
+            self.pt = (w / 2, h / 2)       # eased pointer position
+            self.drop = None               # [x, y, strength] where the last click landed
+            self.fade = None               # [old stops, new stops, progress 0..1]
+
+    @staticmethod
+    def _colors(stops, stops2=None, mixk=0.0):
+        out = []
         for hi in range(NH):
             c = gradient(stops, hi / NH)
+            if stops2 is not None:
+                c2 = gradient(stops2, hi / NH)
+                c = (c[0] + (c2[0] - c[0]) * mixk, c[1] + (c2[1] - c[1]) * mixk, c[2] + (c2[2] - c[2]) * mixk)
             for vi in range(NV):
                 v = vi / (NV - 1)
                 glint = clamp((v - 0.86) / 0.14) * 0.55       # white-hot crests
                 cc = (c[0] + (255 - c[0]) * glint, c[1] + (255 - c[1]) * glint, c[2] + (255 - c[2]) * glint)
                 k = 0.25 + 0.75 * v
-                self.colors.append(_q((cc[0] * k, cc[1] * k, cc[2] * k)))
+                out.append(_q((cc[0] * k, cc[1] * k, cc[2] * k)))
+        return out
+
+    def on_click(self, x, y):
+        st = self.style
+        names = list(PALETTES)
+        old = PALETTES[st["palette"]]
+        st["palette"] = names[(names.index(st["palette"]) + 1) % len(names)]
+        new = PALETTES[st["palette"]]
+        self.fade = [list(old) + [old[0]], list(new) + [new[0]], 0.0]
+        self.drop = [clamp(x, 0, self.w - 1), clamp(y, 0, self.h - 1), 0.0]
+
+    def update(self, dt):
+        super().update(dt)
+        p = self.pointer
+        if p is not None:
+            px, py = clamp(p[0], 0, self.w - 1), clamp(p[1], 0, self.h - 1)
+            k = min(1.0, dt * 4.0)
+            self.pt = (self.pt[0] + (px - self.pt[0]) * k, self.pt[1] + (py - self.pt[1]) * k)
+            if self.pull == 0.0:
+                self.pt = (px, py)
+            self.pull = min(1.0, self.pull + dt * 1.5)
+        elif self.pull > 0.0:
+            self.pull = max(0.0, self.pull - dt * 0.5)
+        if self.drop is not None:
+            self.drop[2] += dt
+            if self.drop[2] > 9.0:
+                self.drop = None
+        if self.fade is not None:
+            self.fade[2] = min(1.0, self.fade[2] + dt / 1.6)
+            f = self.fade[2]
+            self.colors = self._colors(self.fade[0], self.fade[1], f * f * (3 - 2 * f))
+            if f >= 1.0:
+                self.fade = None
 
     def _tables(self, ramp):
         if self.table_ramp != ramp:
@@ -148,6 +195,19 @@ class Plasma(Scene):
         oya = int((0.5 + 0.45 * math.sin(t * wd[1] + sd[6])) * h)
         oxb = int((0.5 + 0.45 * math.sin(t * wd[2] + sd[7])) * w)
         oyb = int((0.5 + 0.45 * math.cos(t * wd[3] + sd[8])) * h)
+        if self.pull > 0.0:   # the pointer drags ripple A (eased in and out)
+            e = self.pull * self.pull * (3 - 2 * self.pull)
+            oxa = int(oxa + (self.pt[0] - oxa) * e)
+            oya = int(oya + (self.pt[1] - oya) * e)
+        if self.drop is not None:   # ripple B sits where the last click landed, then drifts home
+            age = self.drop[2]
+            e = smoothstep(0.0, 0.7, age) * (1.0 - smoothstep(5.0, 9.0, age))
+            oxb = int(oxb + (self.drop[0] - oxb) * e)
+            oyb = int(oyb + (self.drop[1] - oyb) * e)
+        oxa = max(0, min(w, oxa))
+        oya = max(0, min(h, oya))
+        oxb = max(0, min(w, oxb))
+        oyb = max(0, min(h, oyb))
         pa = int(t * 1.1 * LUT_N / math.tau)
         pb = int(-t * 0.8 * LUT_N / math.tau)
         dist = self.dist
@@ -174,3 +234,14 @@ class Plasma(Scene):
             ch[o:o + w] = [chars[i] for i in ks]
             fg[o:o + w] = [colors[i] for i in ks]
             lv[o:o + w] = [levels[i] for i in ks]
+        if self.drop is not None and self.drop[2] < 1.6:
+            # a splash ring spreading from the click
+            age = self.drop[2]
+            r = 1.0 + age * max(w, h * ASPECT) * 0.35
+            fade = 1.0 - age / 1.6
+            steps = int(r * 7) + 8
+            dx, dy = self.drop[0], self.drop[1]
+            for i in range(steps):
+                a = i / steps * math.tau
+                cv.shade(dx + math.cos(a) * r, dy + math.sin(a) * r / ASPECT, 0.35 + 0.6 * fade,
+                         (255, 250, 240), mode="over")

@@ -36,6 +36,7 @@ class LavaLamp(Scene):
     title = "Lava Lamp"
     blurb = "glowing wax blobs rising, merging and sinking in a lava lamp"
     tags = ("retro", "calm", "cozy")
+    interactions = "click to heat the wax and send up a fresh blob, point to warm it gently"
     options = {
         "lamp": (True, "draw the lamp (off = blobs fill the whole screen)"),
         "colors": ("random", "classic, blue, green, purple, pink or random"),
@@ -110,6 +111,49 @@ class LavaLamp(Scene):
             b.ph = rng.uniform(0, math.tau)
             b.seed = rng.uniform(0, 1000)
             self.blobs.append(b)
+        self.n_base = len(self.blobs)   # blobs beyond this were added by clicks
+        self.heat = []                  # [x, y, age]: warm flashes where the user clicked
+
+    # ------------------------------------------------------------------ mouse
+    def _inside(self, x, y):
+        """Nearest point inside the glass to (x, y)."""
+        if not self.rows:
+            return self.cx, (self.gy0 + self.gy1) / 2.0
+        ys = sorted(self.rows)
+        yi = int(clamp(y if y == y else 0, ys[0], ys[-1]))
+        if yi not in self.rows:
+            yi = min(ys, key=lambda r: abs(r - yi))
+        x0, x1 = self.rows[yi]
+        return clamp(x if x == x else self.cx, x0 + 0.5, max(x0 + 0.5, x1 - 0.5)), yi + 0.5
+
+    def on_click(self, x, y):
+        x, y = self._inside(x, y)
+        self.heat.append([x, y, 0.0])
+        del self.heat[:-5]
+        near = None
+        best = 1e9
+        for b in self.blobs:
+            d = math.hypot(b.x - x, (b.y - y) * ASPECT) - b.r
+            if d < best:
+                near, best = b, d
+        if near is not None and best < near.r * 0.6:
+            near.temp = 1.0                 # clicked right on the wax: it melts and surges up
+            near.vy = min(near.vy, 0.0) - self.gh * 0.12
+            return
+        rng = self.rng
+        b = Blob()
+        rs = [bb.r for bb in self.blobs[:self.n_base]] or [3.0]
+        b.r = max(1.6, sum(rs) / len(rs) * rng.uniform(0.55, 0.8))
+        b.x, b.y = x, y
+        b.vx = 0.0
+        b.vy = -self.gh * 0.06
+        b.temp = 1.0
+        b.ph = rng.uniform(0, math.tau)
+        b.seed = rng.uniform(0, 1000)
+        self.blobs.append(b)
+        if len(self.blobs) > self.n_base + 4:     # keep the lamp from filling up
+            extra = self.blobs[self.n_base:-1]
+            self.blobs.remove(min(extra, key=lambda bb: bb.temp + (bb.y < self.gy1 - self.gh * 0.2)))
 
     # ------------------------------------------------------------------ lamp geometry
     def _build_lamp(self):
@@ -265,7 +309,15 @@ class LavaLamp(Scene):
         g = gh * self.style["lift"]
         visc = self.style["visc"]
         t = self.t
+        for hs in self.heat:
+            hs[2] += dt
+        self.heat = [hs for hs in self.heat if hs[2] < 1.5]
+        p = self.pointer
         for b in self.blobs:
+            if p is not None:   # the pointer is a warm hand on the glass
+                d = math.hypot(b.x - p[0], (b.y - p[1]) * ASPECT)
+                if d < b.r * 2.2:
+                    b.temp = min(1.0, b.temp + dt * 0.5 * (1.0 - d / (b.r * 2.2)))
             yn = (b.y - gy0) / gh            # 0 top .. 1 bottom
             if yn > 0.82:
                 b.temp += dt * 0.22 * (yn - 0.75) * 4
@@ -314,6 +366,28 @@ class LavaLamp(Scene):
                 fg[i] = col
                 lv[i] = v
         self.draw_lava(cv)
+        self.draw_heat(cv)
+
+    def draw_heat(self, cv):
+        """Warm glows: a fading flash where the user clicked and a faint one under the pointer."""
+        glow, hot = self.scheme[4], self.scheme[2]
+        spots = [(x, y, 4.0 + a * 5.0, 0.55 * (1 - a / 1.5)) for x, y, a in self.heat]
+        p = self.pointer
+        if p is not None and int(p[1]) in self.rows:
+            x0, x1 = self.rows[int(p[1])]
+            if x0 <= p[0] < x1:
+                spots.append((p[0], p[1], 2.5, 0.22))
+        rows = self.rows
+        for sx, sy, r, k in spots:
+            for y in range(int(sy - r / ASPECT) - 1, int(sy + r / ASPECT) + 2):
+                span = rows.get(y)
+                if span is None:
+                    continue
+                for x in range(max(span[0], int(sx - r) - 1), min(span[1], int(sx + r) + 2)):
+                    d = math.hypot(x + 0.5 - sx, (y + 0.5 - sy) * ASPECT) / r
+                    if d < 1.0:
+                        v = k * (1 - d * d)
+                        cv.shade(x, y, v, mix(glow, hot, v), mode="max")
 
     def draw_lava(self, cv):
         W, H = cv.w, cv.h

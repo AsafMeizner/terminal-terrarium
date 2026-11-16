@@ -19,6 +19,7 @@ class Snow(Scene):
     title = "Snow"
     blurb = "snow falling softly over moonlit hills and a cabin with a warm window"
     tags = ("night", "weather", "calm", "winter", "cozy")
+    interactions = "point to breathe the snowflakes away, click to throw a snowball"
     options = {
         "amount": (1.0, "how much snow falls (0.2 .. 3)"),
         "wind": ("random", "sideways drift, -1 .. 1 (or random)"),
@@ -81,10 +82,13 @@ class Snow(Scene):
             rh = max(2, int(cw * 0.3))
             self.chimney = (cx + int(cw * 0.72) + 1.0, base - ch - rh - 1)
             self.trees = [t for t in self.trees if not (t[3] >= 1 and cx - 4 < t[0] < cx + cw + 4)]
-        # flakes: [x, y, depth, phase]
+        # flakes: [x, y, depth, phase, push vx, push vy]
         n = int(w * h / 9 * self.opt("amount") * self.density)
-        self.flakes = [[rng.uniform(0, w), rng.uniform(0, h), rng.random() ** 1.3, rng.uniform(0, 6.3)]
+        self.flakes = [[rng.uniform(0, w), rng.uniform(0, h), rng.random() ** 1.3, rng.uniform(0, 6.3), 0.0, 0.0]
                        for _ in range(max(5, n))]
+        self.balls = []                 # snowballs in flight: [x0, y0, x1, y1, age, flight time]
+        self.puffs = []                 # burst snow: [x, y, vx, vy, age, life]
+        self.poofs = []                 # the white cloud where a snowball burst: [x, y, age]
         self.acc = [0.0] * w            # snow piling up on the near hill
         self.smoke = []                 # [x, y, age]
         self.smoke_t = 0.0
@@ -233,11 +237,29 @@ class Snow(Scene):
         far = self.hills[0][0]
         acc = self.acc
         gust = wind * (1 + 0.6 * noise1(t * 0.15, 5))
+        p = self.pointer
+        if p is not None:
+            px, py = p
+            pr = self.breath_r()
+        drag = max(0.0, 1.0 - dt * 2.5)
         for f in self.flakes:
             z = f[2]
+            if p is not None:
+                dx, dy = f[0] - px, (f[1] - py) * ASPECT
+                if -pr < dx < pr and -pr < dy < pr:
+                    d = math.sqrt(dx * dx + dy * dy) + 0.3
+                    if d < pr:   # near flakes feel it most
+                        k = (1 - d / pr) * (35 + 40 * z) * dt / d
+                        f[4] += dx * k
+                        f[5] += dy * k / ASPECT
             sp = 1.2 + 4.5 * z * z
-            f[1] += sp * dt
-            f[0] += (gust * (2 + 6 * z) + math.sin(t * (0.6 + z) + f[3]) * (0.4 + 1.2 * z)) * dt
+            f[1] += (sp + f[5]) * dt
+            f[0] += (gust * (2 + 6 * z) + math.sin(t * (0.6 + z) + f[3]) * (0.4 + 1.2 * z) + f[4]) * dt
+            if f[4] or f[5]:
+                f[4] *= drag
+                f[5] *= drag
+                if abs(f[4]) + abs(f[5]) < 0.02:
+                    f[4] = f[5] = 0.0
             xi = int(f[0])
             if 0 <= xi < w:
                 ground = (near[xi] - acc[xi]) if z > 0.66 else mid[xi] if z > 0.33 else far[xi]
@@ -246,10 +268,13 @@ class Snow(Scene):
                         acc[xi] = min(acc[xi] + 0.015, h * 0.12)
                     f[0] = rng.uniform(-w * 0.2, w * 1.2)
                     f[1] = -rng.uniform(0, 3)
+                    f[4] = f[5] = 0.0
                     continue
-            if f[1] > h or f[0] < -w * 0.3 or f[0] > w * 1.3:
+            if f[1] > h or f[0] < -w * 0.3 or f[0] > w * 1.3 or f[1] < -h * 0.5:
                 f[0] = rng.uniform(-w * 0.2, w * 1.2)
                 f[1] = -rng.uniform(0, 3)
+                f[4] = f[5] = 0.0
+        self.update_snowballs(dt)
         # let piles settle so they stay smooth
         if int(t * 10) != int((t - dt) * 10):
             a = acc[:]
@@ -269,6 +294,90 @@ class Snow(Scene):
                 if s[2] < 7 and s[1] > -2:
                     keep.append(s)
             self.smoke = keep
+
+    def breath_r(self):
+        """Reach of the pointer's warm breath, in x-cells."""
+        return max(6.0, min(self.w, self.h * ASPECT) * 0.15)
+
+    def on_click(self, x, y):
+        w, h = self.w, self.h
+        x = clamp(x if x == x else w / 2, 0, w - 1)
+        y = clamp(y if y == y else h / 2, 0, h - 1)
+        # thrown from just below the screen, a little to one side of the target
+        x0 = clamp(x + (w / 2 - x) * 0.4 + self.rng.uniform(-w * 0.1, w * 0.1), 0, w - 1)
+        self.balls.append([x0, h + 2.0, x, y, 0.0, 0.45 + 0.35 * (h - y) / max(1, h)])
+        del self.balls[:-6]
+
+    def update_snowballs(self, dt):
+        rng = self.rng
+        landed = []
+        for b in self.balls:
+            b[4] += dt
+            if b[4] >= b[5]:
+                landed.append(b)
+        for b in landed:
+            self.balls.remove(b)
+            x, y = b[2], b[3]
+            self.poofs.append([x, y, 0.0])
+            del self.poofs[:-6]
+            for _ in range(rng.randint(40, 55)):     # puff!
+                a = rng.uniform(0, math.tau)
+                sp = rng.uniform(4, 20) * rng.choice((0.5, 1.0, 1.0))
+                self.puffs.append([x, y, math.cos(a) * sp, math.sin(a) * sp / ASPECT - 4.0, 0.0,
+                                   rng.uniform(0.8, 1.8)])
+            xi = int(x)
+            near = self.hills[2][0]
+            if 0 <= xi < self.w and y >= near[xi] - self.acc[xi] - 2:   # splat into the snowbank
+                for dx in range(-3, 4):
+                    if 0 <= xi + dx < self.w:
+                        self.acc[xi + dx] = min(self.acc[xi + dx] + 0.6 * (1 - abs(dx) / 4), self.h * 0.12)
+        g = max(0.0, 1.0 - dt * 2.0)
+        for q in self.puffs:
+            q[4] += dt
+            q[2] *= g
+            q[3] = q[3] * g + 9.0 * dt
+            q[0] += q[2] * dt
+            q[1] += q[3] * dt
+        self.puffs = [q for q in self.puffs if q[4] < q[5]]
+        for q in self.poofs:
+            q[2] += dt
+        self.poofs = [q for q in self.poofs if q[2] < 0.9]
+        del self.puffs[:-300]
+
+    def draw_snowballs(self, cv):
+        p = self.pointer
+        if p is not None:   # a faint warm haze where the breath is
+            px, py = p
+            r = self.breath_r() * 0.7
+            for yy in range(int(py - r / ASPECT), int(py + r / ASPECT) + 2):
+                for xx in range(int(px - r), int(px + r) + 2):
+                    d = math.hypot(xx + 0.5 - px, (yy + 0.5 - py) * ASPECT) / r
+                    if d < 1:
+                        cv.shade(xx, yy, 0.22 * (1 - d * d), (255, 190, 130))
+        for x0, y0, x1, y1, age, ft in self.balls:
+            u = age / ft
+            x = x0 + (x1 - x0) * u
+            y = y0 + (y1 - y0) * u - (1 - (2 * u - 1) ** 2) * self.h * 0.25   # an arc
+            r = 3.6 - 2.4 * u                                              # flying away from us
+            for yy in range(int(y - r / ASPECT) - 1, int(y + r / ASPECT) + 2):
+                for xx in range(int(x - r) - 1, int(x + r) + 2):
+                    d = math.hypot(xx + 0.5 - x, (yy + 0.5 - y) * ASPECT) / r
+                    if d < 1:   # lit from the moon's side, with a soft shadowed edge
+                        lit = clamp(1.0 - d * d * 0.55 + (xx + 0.5 - x) / r * 0.15 * (1 if self.moon[0] > x else -1))
+                        cv.put(xx, yy, "@" if lit > 0.8 else "O" if lit > 0.6 else "o",
+                               mix((120, 140, 190), (255, 255, 255), lit), level=lit)
+        for x, y, age in self.poofs:
+            r = 3.5 + age * 10.0
+            k = (1 - age / 0.9) ** 0.7
+            for yy in range(int(y - r / ASPECT) - 1, int(y + r / ASPECT) + 2):
+                for xx in range(int(x - r) - 1, int(x + r) + 2):
+                    d = math.hypot(xx + 0.5 - x, (yy + 0.5 - y) * ASPECT) / r
+                    if d < 1:
+                        cv.shade(xx, yy, k * (1 - d * d) * 0.9, (235, 242, 255), mode="over" if d < 0.9 * k else "max")
+        for x, y, vx, vy, age, life in self.puffs:
+            k = 1 - age / life
+            cv.put(x, y, "*" if k > 0.6 else "+" if k > 0.3 else ".", mix((120, 140, 190), (250, 252, 255), k),
+                   level=0.8 * k)
 
     # ------------------------------------------------------------------ draw
     def draw(self, cv):
@@ -315,7 +424,7 @@ class Snow(Scene):
                 fall = 1 - abs(dx) / (r + 0.5)
                 shade(sx + dx, sy, v * fall, (175, 180, 200))
         # flakes, far to near
-        for x, y, z, ph in self.flakes:
+        for x, y, z, ph, _, _ in self.flakes:
             if y < 0:
                 continue
             if z < 0.33:
@@ -325,3 +434,4 @@ class Snow(Scene):
                     mix((140, 155, 195), (200, 210, 240), (z - 0.33) * 3), level=0.5)
             else:
                 put(x, y, "*", (240, 245, 255), level=0.9)
+        self.draw_snowballs(cv)

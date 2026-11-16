@@ -1,4 +1,6 @@
 """Conway's Game of Life on a torus, cells colored by age, dead cells leaving glowing ghosts."""
+import math
+
 from ..engine import Scene, gradient
 
 RULES = {
@@ -52,6 +54,7 @@ class Life(Scene):
     title = "Game of Life"
     blurb = "Conway's Game of Life on a torus, colored by age with fading ghosts"
     tags = ("math", "abstract", "retro")
+    interactions = "click to drop a glider, spaceship or methuselah, move the pointer to draw sparks"
     options = {
         "rule": ("random", "life, highlife, daynight, seeds, maze or random (mostly life)"),
         "palette": ("random", "aurora, ember, ocean, forest, candy, mono or random"),
@@ -108,6 +111,62 @@ class Life(Scene):
         stops, self.ghost_col = PALETTES[self.style["palette"]]
         self.palette = [_q(gradient(stops, min(1.0, (a / 60.0) ** 0.6))) for a in range(61)]
         self.seed_soup(full=True)
+        self.last_cell = None   # grid cell the pointer was last seen in
+        self.flashes = []       # [x, y, age]: a ripple where a click landed
+
+    def to_grid(self, x, y):
+        """Screen cell -> grid cell, clamped onto the board."""
+        ox = (self.w - self.gw * self.cw) // 2
+        gx = int((x - ox) // self.cw) if x == x else 0
+        gy = int(y) if y == y else 0
+        return max(0, min(self.gw - 1, gx)), max(0, min(self.gh - 1, gy))
+
+    def on_click(self, x, y):
+        rng = self.rng
+        gx, gy = self.to_grid(x, y)
+        gw, gh = self.gw, self.gh
+        pat = rng.choice(PATTERNS[:4])     # glider, spaceship, r-pentomino or acorn
+        fx, fy = rng.choice((1, -1)), rng.choice((1, -1))
+        swap = rng.random() < 0.5
+        w = max(max(dx, dy) for dx, dy in pat)
+        for dx, dy in pat:
+            if swap:
+                dx, dy = dy, dx
+            dx, dy = (dx - w // 2) * fx, (dy - w // 2) * fy
+            i = ((gy + dy) % gh) * gw + (gx + dx) % gw
+            self.age[i] = 1
+        # a ring of afterglow so you see where it landed
+        r = 3.5
+        for k in range(28):
+            a = k / 28 * 6.283185307
+            i = (int(gy + r * 0.62 * math.sin(a) + 0.5) % gh) * gw + int(gx + r * math.cos(a) + 0.5) % gw
+            if not self.age[i]:
+                self.ghost[i] = 1.0
+                self.ghost_age[i] = 1
+        self.history = []
+        self.flat = 0
+        self.flashes.append([max(0.0, min(self.w - 1.0, x)), max(0.0, min(self.h - 1.0, y)), 0.0])
+        del self.flashes[:-6]
+
+    def paint(self):
+        """The pointer leaves a trail of short-lived cells: sparks that fizzle into ghosts."""
+        p = self.pointer
+        if p is None:
+            self.last_cell = None
+            return
+        cell = self.to_grid(*p)
+        last = self.last_cell
+        self.last_cell = cell
+        if last is None or last == cell:
+            return
+        (x0, y0), (x1, y1) = last, cell
+        n = max(abs(x1 - x0), abs(y1 - y0))
+        if n > 12:     # a jump (pointer re-entered elsewhere): don't draw a line across
+            return
+        for k in range(1, n + 1):
+            x = x0 + (x1 - x0) * k // n
+            y = y0 + (y1 - y0) * k // n
+            self.age[y * self.gw + x] = 1
 
     def seed_soup(self, full=False):
         rng = self.rng
@@ -215,6 +274,10 @@ class Life(Scene):
                 g[i] *= decay
             elif g[i]:
                 g[i] = 0.0
+        self.paint()
+        for f in self.flashes:
+            f[2] += dt
+        self.flashes = [f for f in self.flashes if f[2] < 0.8]
         self.acc += dt * rate
         steps = 0
         while self.acc >= 1.0 and steps < 8:
@@ -277,3 +340,11 @@ class Life(Scene):
                         ch[jj] = gch
                         fg[jj] = c
                         lv[jj] = v
+        for fx, fy, fa in self.flashes:   # click ripples, drawn over the board
+            r = 1.5 + fa * 14.0
+            col = pal[1]
+            v = 0.95 * (1.0 - fa / 0.8)
+            steps = int(r * 7) + 8
+            for k in range(steps):
+                a = k / steps * math.tau
+                cv.shade(fx + math.cos(a) * r, fy + math.sin(a) * r * 0.5, v, col, mode="over")

@@ -432,6 +432,8 @@ class Bloom:
         self.leaves = [(rng.uniform(0.25, 0.7), rng.choice((-1, 1))) for _ in range(rng.randint(1, 3))]
         self.x, self.y = x, h - 1 - stem
         self.taken = False
+        self.grow = 1.0           # < 1 while a clicked flower is still opening
+        self.full = (stem, size)
 
     def update(self, t):
         sway = 0.9 * math.sin(t * 0.6 + self.phase) + 0.4 * noise1(t * 0.3 + self.phase * 5)
@@ -444,6 +446,7 @@ class Butterflies(Scene):
     title = "Butterflies"
     blurb = "big patterned butterflies and moths flutter through a night garden and rest on flowers"
     tags = ("nature", "creatures", "calm", "summer")
+    interactions = "point to shoo the butterflies, click to grow a flower they come to visit"
     options = {
         "count": (0, "number of butterflies (0 = based on screen size)"),
         "family": ("random", "random, monarch, morpho, swallowtail, moth, admiral or jewel"),
@@ -496,6 +499,48 @@ class Butterflies(Scene):
                        hsv(rng.uniform(0.22, 0.38), rng.uniform(0.4, 0.7), rng.uniform(0.25, 0.45)))
                       for _ in range(int(w * 0.9))]
         self.sparks = []
+        self.n_blooms = len(self.blooms)   # clicked flowers are appended after these
+
+    # ------------------------------------------------------------------ mouse
+    def on_click(self, x, y):
+        rng = self.rng
+        w, h = self.w, self.h
+        x = clamp(x if x == x else w / 2, 2, max(2, w - 3))
+        y = y if y == y else h / 2
+        stem = clamp(h - 1 - y, h * 0.12, h * 0.45)
+        big = min(w, h * ASPECT)
+        kind = rng.choice(("daisy", "cosmos", "cone", "zinnia"))
+        petal = hsv(rng.random(), rng.uniform(0.45, 0.8), 1.0)
+        center = (255, 200, 60) if kind in ("daisy", "cosmos") else rng.choice(((150, 80, 40), (255, 150, 40)))
+        b = Bloom(rng, x, h, stem, kind, (petal, center), clamp(big * rng.uniform(0.055, 0.08), 2.6, 8.0))
+        b.grow = 0.0
+        b.stem, b.r = 0.5, 0.3
+        self.blooms.append(b)
+        extra = self.blooms[self.n_blooms:]
+        if len(extra) > 5:            # the oldest clicked flower makes way
+            old = extra[0]
+            self.blooms.remove(old)
+            for f in self.flies:
+                if f.flower is old:
+                    f.flower = None
+                    f.state = "fly"
+                    f.tx, f.ty = f.pick_target(self)
+        # the nearest butterfly comes to land on it, another one comes to look
+        free = sorted((f for f in self.flies if f.state in ("fly", "approach", "rest")),
+                      key=lambda f: abs(f.x - x) + abs(f.y - (h - stem)) * ASPECT)
+        for k, f in enumerate(free[:2]):
+            if f.flower is not None:
+                f.flower.taken = False
+                f.flower = None
+            if k == 0:
+                b.taken = True
+                f.flower = b
+                f.state = "approach"
+                f.timer = 14
+            else:
+                f.state = "fly"
+                f.tx, f.ty = clamp(x + rng.choice((-1, 1)) * f.R * 2.2, 0, w), h - 1 - stem - f.R / ASPECT
+                f.timer = rng.uniform(5, 8)
 
     def family(self):
         return self.fam_fixed or self.rng.choice(self.pool)
@@ -508,9 +553,27 @@ class Butterflies(Scene):
         rng = self.rng
         w, h = self.w, self.h
         for b in self.blooms:
+            if b.grow < 1.0:   # a clicked flower shoots up and opens
+                b.grow = min(1.0, b.grow + dt / 1.8)
+                e = smoothstep(0.0, 0.6, b.grow)
+                b.stem = max(0.5, b.full[0] * e)
+                b.r = max(0.3, b.full[1] * smoothstep(0.45, 1.0, b.grow))
+                if 0.5 < b.grow < 0.9 and rng.random() < dt * 30:
+                    a = rng.uniform(0, TAU)
+                    self.sparks.append([b.x, b.y, math.cos(a) * 3, math.sin(a) * 1.5 - 0.5, rng.uniform(0.8, 1.6),
+                                        mix(b.petal, WHITE, 0.4), rng.uniform(0, TAU), 1.0])
             b.update(t)
+        ptr = self.pointer
         for i, f in enumerate(self.flies):
             f.life -= dt
+            if f.state == "rest" and ptr is not None and                     math.hypot(f.x - ptr[0], (f.y - ptr[1]) * ASPECT) < f.R * 1.3:
+                # startled off its flower
+                f.state = "fly"
+                f.flower.taken = False
+                f.flower = None
+                f.vy = -f.speed
+                f.tx, f.ty = f.pick_target(self)
+                f.timer = rng.uniform(3, 6)
             if f.state == "rest":
                 b = f.flower
                 f.x += (b.x - f.x) * min(1, dt * 8)
@@ -550,6 +613,16 @@ class Butterflies(Scene):
             n2 = noise1(t * 0.9 + f.seed * 3, f.seed + 1) * 0.9
             dvx = dx / dist * sp + n1 * f.speed * (0.2 if f.state == "approach" else 0.7)
             dvy = dy / dist * sp / ASPECT + n2 * f.speed * (0.1 if f.state == "approach" else 0.35)
+            if ptr is not None:                         # flutter away from the pointer
+                ox, oy = f.x - ptr[0], (f.y - ptr[1]) * ASPECT
+                dd = math.hypot(ox, oy) + 1e-6
+                lim = f.R * 2.6
+                if dd < lim:
+                    push = (lim - dd) / lim * f.speed * 3.0
+                    dvx += ox / dd * push
+                    dvy += oy / dd * push / ASPECT
+                    if f.state == "fly" and dd < f.R * 1.5:
+                        f.tx, f.ty = f.pick_target(self)
             for o in self.flies:                       # keep a little personal space
                 if o is not f and o.state != "rest":
                     ox, oy = f.x - o.x, (f.y - o.y) * ASPECT

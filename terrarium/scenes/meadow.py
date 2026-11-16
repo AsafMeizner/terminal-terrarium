@@ -43,6 +43,7 @@ class Meadow(Scene):
     title = "Meadow"
     blurb = "a golden-hour meadow: grass waves in the wind, flowers bob, butterflies flutter"
     tags = ("nature", "plants", "wind", "calm")
+    interactions = "point to part the grass, click to send a gust rippling out across the meadow"
     options = {
         "wind": (1.0, "wind strength"),
         "mood": ("random", "golden, rose, morning, blue or random"),
@@ -125,6 +126,19 @@ class Meadow(Scene):
         self.flies = [self.new_fly() for _ in range(n)]
         self.motes = [[rng.uniform(0, w), rng.uniform(top, h), rng.uniform(0, TAU)] for _ in range(self.count(18))]
         self.gx = [0.0] * (w + 2)
+        self.gusts = []     # [x, y, age]: rings of wind spreading from clicks
+
+    def on_click(self, x, y):
+        x = clamp(x if x == x else self.w / 2, -10, self.w + 10)
+        y = clamp(y if y == y else self.h / 2, -10, self.h + 10)
+        self.gusts.append([x, y, 0.0])
+        del self.gusts[:-5]
+        for f in self.flies:    # butterflies get tossed by the blast
+            dx, dy = f["x"] - x, (f["y"] - y) * ASPECT
+            d = math.hypot(dx, dy) + 1.0
+            if d < 30:
+                f["vx"] += dx / d * 14 * (1 - d / 30)
+                f["vy"] += dy / d * 7 * (1 - d / 30)
 
     def new_fly(self):
         rng = self.rng
@@ -164,6 +178,9 @@ class Meadow(Scene):
             elif f["x"] < -3:
                 f["x"] = w + 1.0
             f["y"] = clamp(f["y"], 1, h - 2)
+        for gu in self.gusts:
+            gu[2] += dt
+        self.gusts = [gu for gu in self.gusts if gu[2] < self.GUST_LIFE]
         for m in self.motes:
             m[2] += dt
             m[0] += (self.gx[int(clamp(m[0], 0, w))] * 2 + 0.3 * math.sin(m[2])) * dt
@@ -171,6 +188,19 @@ class Meadow(Scene):
             if m[0] > w or m[0] < 0:
                 m[0] %= w
                 m[1] = rng.uniform(min(self.horizon), h)
+
+    GUST_LIFE = 2.2   # seconds a clicked gust keeps rolling outward
+
+    def push_fields(self):
+        """Pointer and gust rings as (x, y, radius, strength, kind) for the grass to lean from."""
+        out = []
+        p = self.pointer
+        if p is not None:
+            out.append((p[0], p[1], max(6.0, self.w * 0.07), 3.6, 0))
+        speed = max(self.w, self.h * ASPECT) * 0.45
+        for x, y, age in self.gusts:
+            out.append((x, y, 1.0 + age * speed, 3.2 * (1 - age / self.GUST_LIFE) ** 1.5, 1))
+        return out
 
     # -- drawing ---------------------------------------------------------------------
     def draw(self, cv):
@@ -241,15 +271,32 @@ class Meadow(Scene):
         sunx = self.sun[0]
         sin = math.sin
         far_lit = self.lk["sun"][2]
+        fields = self.push_fields()
+        sqrt = math.sqrt
         for bx, by, height, d, ph, stiff, flower, hj, cj in self.blades:
             xi = int(bx)
             g = gx[xi + 1 if 0 <= xi + 1 < ng else -1]
             flutter = 0.18 * sin(t * (2.0 + 2.5 * d) + ph)
-            bend = (g + flutter) / stiff + hj
+            push = 0.0
+            for fx_, fy_, fr, fs, kind in fields:
+                dx = bx - fx_
+                if kind == 0:     # the pointer: lean away from it, strongest close by
+                    if -fr < dx < fr:
+                        dy = (by - height * 0.5 - fy_) * ASPECT
+                        dd = sqrt(dx * dx + dy * dy)
+                        if dd < fr:
+                            push += dx / (dd + 0.5) * fs * (1 - dd / fr)
+                else:             # a gust ring: blades lean outward as the front passes
+                    dy = (by - fy_) * ASPECT
+                    u = (sqrt(dx * dx + dy * dy) - fr) / 5.0
+                    if -1.0 < u < 1.0:
+                        k = (1 - u * u) * fs
+                        push += (k if dx >= 0 else -k)
+            bend = (g + flutter + push) / stiff + hj
             n = max(1, int(height + 0.5))
             # far blades are hazy blue-green, near blades rich green with golden tips;
             # where a gust presses the grass over, the field brightens (sheen)
-            sheen = clamp(abs(g) * 0.6)
+            sheen = clamp(abs(g + push) * 0.6)
             tipc = gradient(self.lk["near"], clamp(0.4 + 0.35 * d + sheen * 0.55 + cj))
             base = mix(self.lk["far"][0], self.lk["near"][0], d)
             if d < 0.35:

@@ -47,6 +47,8 @@ class Head:
             self.seeds.append([rr * math.cos(a), zz, rr * math.sin(a), 1.0, rng.uniform(0.82, 1.06)])
         self.x, self.y = x, top
         self.tilt = 0.0
+        self.push = 0.0             # extra lean from the user's breath or a clicked gust
+        self.push_v = 0.0
 
 
 class Dandelion(Scene):
@@ -54,6 +56,7 @@ class Dandelion(Scene):
     title = "Dandelion"
     blurb = "dandelion clocks in the wind, seeds drifting off on curling paths"
     tags = ("flowers", "nature", "calm", "night")
+    interactions = "move the pointer past a seed head to blow its seeds away, click for a big gust from there"
     options = {
         "heads": (0, "number of seed heads (0 = based on screen size)"),
         "wind": (1.0, "strength of the gusts"),
@@ -103,6 +106,56 @@ class Dandelion(Scene):
         self.gust_peak = 1.0
         self.streaks = []
         self.wind = 0.0
+        self.last_ptr = None
+        self.rings = []             # [x, y, age]: the shock of a clicked gust spreading out
+
+    # ------------------------------------------------------------------ mouse
+    def seed_pos(self, hd, s):
+        cy, sy = math.cos(hd.yaw), math.sin(hd.yaw)
+        px = s[0] * cy + s[2] * sy
+        pz = -s[0] * sy + s[2] * cy
+        x = hd.x + (px * math.cos(hd.tilt) - s[1] * math.sin(hd.tilt)) * hd.R * s[4]
+        y = hd.y + (-(px * math.sin(hd.tilt) + s[1] * math.cos(hd.tilt))) * hd.R * s[4] / ASPECT
+        return x, y, pz
+
+    def blow(self, ox, oy, reach, power, rate):
+        """Air blowing outward from (ox, oy): detach seeds facing it, push flyers and stems away."""
+        rng = self.rng
+        for hd in self.heads:
+            dx, dy = hd.x - ox, (hd.y - oy) * ASPECT
+            d = math.hypot(dx, dy)
+            if d > reach + hd.R:
+                continue
+            fall = clamp(1.0 - max(0.0, d - hd.R) / reach)
+            hd.push_v += (1 if dx >= 0 else -1) * power * fall * 0.6
+            for s in hd.seeds:
+                if s[3] < 1.0:
+                    continue
+                x, y, pz = self.seed_pos(hd, s)
+                sx, sy = x - ox, (y - oy) * ASPECT
+                sd = math.hypot(sx, sy) + 0.5
+                # seeds nearest the breath go first
+                near = clamp(1.0 - (sd - max(0.0, d - hd.R)) / (hd.R * 2.2))
+                if rng.random() < rate * fall * (0.25 + near):
+                    s[3] = -rng.uniform(4, 9)
+                    sp = power * rng.uniform(6, 14) * (0.4 + fall)
+                    self.flyers.append([x, y, sx / sd * sp, sy / sd * sp / ASPECT - 0.5, rng.uniform(0, TAU),
+                                        rng.uniform(-4, 4), 0.0, hd.depth * (0.8 + 0.2 * (pz > 0)),
+                                        rng.uniform(0, 100)])
+        for fl in self.flyers:
+            dx, dy = fl[0] - ox, (fl[1] - oy) * ASPECT
+            d = math.hypot(dx, dy) + 0.5
+            if d < reach:
+                k = power * 10 * (1 - d / reach) / d
+                fl[2] += dx * k
+                fl[3] += dy * k / ASPECT
+
+    def on_click(self, x, y):
+        x = clamp(x if x == x else self.w / 2, -5, self.w + 5)
+        y = clamp(y if y == y else self.h / 2, -5, self.h + 5)
+        self.blow(x, y, max(18.0, self.w * 0.45), 2.0, 0.75)
+        self.rings.append([x, y, 0.0])
+        del self.rings[:-4]
 
     # ------------------------------------------------------------------ motion
     def wind_at(self, x, y, t):
@@ -130,9 +183,26 @@ class Dandelion(Scene):
             g = math.sin(math.pi * f) ** 1.5 * self.gust_peak
         self.gust = g * strength
         self.wind = (0.4 + 0.6 * noise1(t * 0.3, 11) * 0.5 + 6.0 * g) * strength
+        # the pointer is a breath: hovering near a head stirs it, sweeping past it blows seeds off
+        p = self.pointer
+        if p is not None:
+            if self.last_ptr is not None and dt > 0:
+                speed = math.hypot(p[0] - self.last_ptr[0], (p[1] - self.last_ptr[1]) * ASPECT) / dt
+            else:
+                speed = 0.0
+            self.last_ptr = p
+            self.blow(p[0], p[1], self.R * 1.6, 0.25 + min(1.0, speed / 25),
+                      dt * (0.03 + min(4.0, speed / 6)))
+        else:
+            self.last_ptr = None
+        for r in self.rings:
+            r[2] += dt
+        self.rings = [r for r in self.rings if r[2] < 1.0]
         for hd in self.heads:
+            hd.push_v -= (hd.push * 9.0 + hd.push_v * 2.5) * dt     # a springy stem
+            hd.push = clamp(hd.push + hd.push_v * dt, -0.5, 0.5)
             sway = (0.25 + 0.25 * math.sin(t * 0.8 + hd.ph)) * 0.3 + self.wind * 0.08
-            hd.tilt = clamp(self.dir * sway * (0.6 + 0.4 * hd.depth) + hd.lean, -0.6, 0.6)
+            hd.tilt = clamp(self.dir * sway * (0.6 + 0.4 * hd.depth) + hd.lean + hd.push, -0.8, 0.8)
             stem = hd.ground - hd.top
             hd.x = hd.x0 + math.sin(hd.tilt) * stem * ASPECT * 0.5
             hd.y = hd.ground - math.cos(hd.tilt) * stem
@@ -189,6 +259,14 @@ class Dandelion(Scene):
         for x, y, ph, k in self.stars:
             tw = 0.5 + 0.5 * math.sin(t * (0.6 + k) + ph * 7)
             cv.shade(x, y, 0.06 + 0.16 * tw * k, self.mood[2])
+        for rx, ry, age in self.rings:     # a clicked gust: air rushing out in a ring
+            r = 2.0 + age * max(w, h * ASPECT) * 0.45
+            n = int(r * 3) + 12
+            for i in range(n):
+                a = i / n * TAU
+                if math.sin(a * 7 + rx) > 0.2:            # broken into wisps
+                    cv.shade(rx + math.cos(a) * r, ry + math.sin(a) * r / ASPECT, 0.35 * (1 - age),
+                             self.mood[2])
         for st in self.streaks:
             a = math.sin(math.pi * st[2] / 1.6)
             for i in range(int(st[3])):
