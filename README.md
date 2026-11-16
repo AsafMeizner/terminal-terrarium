@@ -139,7 +139,7 @@ several of those recreate specific famous games.
 
 <!-- scenes:start -->
 
-**50 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
+**54 scenes.** Every one is procedurally generated: run it twice and you get two different pictures.
 
 ### Flowers
 
@@ -165,7 +165,10 @@ several of those recreate specific famous games.
 
 | | scene | |
 |---|---|---|
+| <img src="docs/screenshots/ants.png" width="300" alt="ants"> | **`ants`** | ants wander, find crumbs and lay scent trails; highways emerge and fade<br><sub>options: `ants`, `soil`, `species`, `trails`</sub> |
 | <img src="docs/screenshots/aquarium.png" width="300" alt="aquarium"> | **`aquarium`** | a planted fish tank in depth: schooling tetras, angelfish, a pufferfish, shrimp and a snail<br><sub>options: `species`, `fish`, `rays`</sub> |
+| <img src="docs/screenshots/axolotl.png" width="300" alt="axolotl"> | **`axolotl`** | a smiling axolotl with frilly gills potters around a planted tank and naps on the sand<br><sub>options: `morph`, `plants`</sub> |
+| <img src="docs/screenshots/bees.png" width="300" alt="bees"> | **`bees`** | honeybees visit swaying flowers, fly home and waggle-dance the way to the best ones<br><sub>options: `bees`, `flowers`, `hive`</sub> |
 | <img src="docs/screenshots/butterflies.png" width="300" alt="butterflies"> | **`butterflies`** | big patterned butterflies and moths flutter through a night garden and rest on flowers<br><sub>options: `count`, `family`, `flowers`, `trail`</sub> |
 | <img src="docs/screenshots/cat.png" width="300" alt="cat"> | **`cat`** | a cat curled up asleep on a cushion by the window, breathing, dreaming, purring when petted<br><sub>options: `fur`, `weather`</sub> |
 | <img src="docs/screenshots/fishbowl.png" width="300" alt="fishbowl"> | **`fishbowl`** | goldfish drifting in a glass bowl; feed them and they come to eat<br><sub>options: `fish`, `bowl`</sub> |
@@ -173,6 +176,7 @@ several of those recreate specific famous games.
 | <img src="docs/screenshots/murmuration.png" width="300" alt="murmuration"> | **`murmuration`** | a starling murmuration swirls over a sunset lake, bending around a diving falcon<br><sub>options: `birds`, `predator`, `palette`</sub> |
 | <img src="docs/screenshots/owl.png" width="300" alt="owl"> | **`owl`** | an owl on a branch under a big moon: it blinks, hoots, swivels its head and flies<br><sub>options: `species`</sub> |
 | <img src="docs/screenshots/peacock.png" width="300" alt="peacock"> | **`peacock`** | a peacock struts, then fans its train into a full shimmering display of eyespots<br><sub>options: `interval`, `palette`</sub> |
+| <img src="docs/screenshots/penguins.png" width="300" alt="penguins"> | **`penguins`** | penguins waddle, belly-slide and dive off an ice shelf; watch them swim underwater<br><sub>options: `penguins`, `species`, `sky`, `snow`</sub> |
 | <img src="docs/screenshots/seascape.png" width="300" alt="seascape"> | **`seascape`** | a cross-section of the sea: boats and leaping dolphins above, fish and kelp below<br><sub>options: `time`, `boats`, `dolphins`, `fish`</sub> |
 | <img src="docs/screenshots/yinyang.png" width="300" alt="yinyang"> | **`yinyang`** | a white koi and a golden koi chasing each other around a swirling yin-yang vortex<br><sub>options: `vortex`, `water`, `speed`, `fins`, `sparkle`</sub> |
 
