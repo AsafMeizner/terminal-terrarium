@@ -31,5 +31,8 @@ Homepage = "https://github.com/AsafMeizner/terminal-terrarium"
 [tool.setuptools]
 packages = ["terrarium", "terrarium.scenes"]
 
+[tool.setuptools.package-data]
+terrarium = ["magic_bridge.mjs"]
+
 [tool.setuptools.dynamic]
 version = {attr = "terrarium.__version__"}

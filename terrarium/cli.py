@@ -18,6 +18,8 @@ EPILOG = """examples:
   terrarium jellyfish -t vapor -o count=9 -s 0.6
   terrarium bonsai --seed 42 --charset blocks
   terrarium koi --record koi.gif --size 90x30 --frames 120
+  terrarium --magic-list moon        find ASCII Magic library pieces (needs Node.js to play)
+  terrarium magic:moonlit-sea        play one, with all of terrarium's themes and keys
 keys while running: space pause, n/p next/prev, t theme, c charset, +/- speed, ? help, q quit
 """
 
@@ -46,6 +48,12 @@ def build_parser():
     g.add_argument("--cycle", type=float, metavar="SECS", help="switch to the next scene every SECS seconds")
     g.add_argument("--shuffle", action="store_true", help="shuffle scene order")
     g.add_argument("--duration", type=float, metavar="SECS", help="exit after SECS seconds")
+
+    g = p.add_argument_group("the ASCII Magic library (~700 more pieces, needs Node.js)")
+    g.add_argument("--magic", nargs="?", const="random", metavar="PIECE",
+                   help="play an ASCII Magic piece (random if no name); same as the scene name magic:PIECE")
+    g.add_argument("--magic-list", nargs="?", const="", metavar="WORD",
+                   help="list ASCII Magic pieces, optionally only those matching WORD")
 
     g = p.add_argument_group("making your own scenes")
     g.add_argument("--new", metavar="NAME", help="write a ready-to-edit scene template NAME.py and exit")
@@ -156,6 +164,50 @@ def _new_scene(name, directory):
     return 0
 
 
+def _magic_scene(slug):
+    """Validate and build the Scene class for an ASCII Magic piece (before the terminal is taken)."""
+    from .engine import Context
+    from .magic import MagicError, load_index, make_scene, node_path
+
+    if not node_path():
+        sys.exit("terrarium: ASCII Magic pieces need Node.js (https://nodejs.org). terrarium's own scenes don't.")
+    index = load_index()
+    known = {p["slug"] for p in index.get("pieces", [])}
+    if slug == "random":
+        if not known:
+            sys.exit("terrarium: couldn't get the ASCII Magic piece list (are you online?)")
+        slug = random.choice(sorted(known))
+    elif known and slug not in known:
+        close = sorted(s for s in known if slug in s)[:6]
+        hint = f" (did you mean {', '.join(close)}?)" if close else " (try --magic-list)"
+        sys.exit(f"terrarium: no ASCII Magic piece called {slug!r}{hint}")
+    try:
+        cls = make_scene(slug, index)
+        probe = cls(Context(seed=1), 80, 24)   # downloads + checks the piece once, then caches it
+        probe.close()
+    except MagicError as e:
+        sys.exit(f"terrarium: {e}")
+    return cls
+
+
+def _print_magic(word):
+    from .magic import load_index, node_path
+
+    index = load_index()
+    pieces = index.get("pieces", [])
+    if not pieces:
+        sys.exit("terrarium: couldn't get the ASCII Magic piece list (are you online?)")
+    cats = {c["id"]: c["name"] for c in index.get("categories", [])}
+    w = word.lower()
+    hits = [p for p in pieces if not w or w in p["slug"] or w in p["name"].lower() or w in p.get("note", "").lower()]
+    width = max((len(p["slug"]) for p in hits), default=10) + 2
+    for p in hits:
+        print(f"  {p['slug']:<{width}}{cats.get(p['category'], p['category'])}: {p['note'][:70]}")
+    print(f"\n{len(hits)} of {len(pieces)} ASCII Magic pieces (https://www.ascii-magic.com/ascii, MIT).")
+    print("play one with:  terrarium magic:NAME" + ("" if node_path() else "   (install Node.js first: https://nodejs.org)"))
+    return 0
+
+
 def main(argv=None):
     args = build_parser().parse_args(argv)
     args.options = _parse_options(args.option)
@@ -170,6 +222,10 @@ def main(argv=None):
     if args.list:
         _print_list(scenes)
         return 0
+    if args.magic_list is not None:
+        return _print_magic(args.magic_list)
+    if args.magic:
+        args.scenes = [f"magic:{args.magic}"] + list(args.scenes)
     if args.themes:
         for name, th in THEMES.items():
             print(f"  {name:<12}{th.get('blurb', '')}")
@@ -181,13 +237,15 @@ def main(argv=None):
         return 0
 
     for n in args.scenes:
+        if n.startswith("magic:"):
+            continue
         if n not in scenes:
             close = [s for s in scenes if s.startswith(n[:3])]
             hint = f" — did you mean {', '.join(close)}?" if close else " (try --list)"
             sys.exit(f"terrarium: unknown scene {n!r}{hint}")
 
     if args.scenes:
-        chosen = [scenes[n] for n in args.scenes]
+        chosen = [_magic_scene(n[6:]) if n.startswith("magic:") else scenes[n] for n in args.scenes]
     elif args.tag:
         chosen = [c for c in scenes.values() if set(args.tag) & set(c.tags)]
         if not chosen:

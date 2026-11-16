@@ -30,7 +30,7 @@
         <p class="status" id="status" role="status">Loading Python in your browser…</p>
       </div>
       <div class="command" aria-label="Run this in your terminal">
-        <p class="command-hint">This exact scene in your terminal:</p>
+        <p class="command-hint" id="cli-hint">This exact scene in your terminal:</p>
         <div class="command-row">
           <code id="cli">terrarium</code>
           <button type="button" class="copy" data-copy="cli">Copy</button>
@@ -39,7 +39,24 @@
     </section>
 
     <aside class="panel" aria-label="Settings">
-      <div class="group">
+      <div class="lib-tabs" role="group" aria-label="Library">
+        <button type="button" id="tab-terrarium" class="lib-tab">Terrarium scenes</button>
+        <button type="button" id="tab-magic" class="lib-tab">ASCII Magic library</button>
+      </div>
+      <div class="group only-magic">
+        <label for="magic-search">Search the library <output id="magic-count"></output></label>
+        <input id="magic-search" type="text" placeholder="moon, robot, rain...">
+        <label for="magic-cat">Category</label>
+        <select id="magic-cat"><option value="">All categories</option></select>
+        <label for="magic-list">Piece</label>
+        <select id="magic-list" size="9"></select>
+        <p class="blurb" id="magic-note"></p>
+        <button type="button" id="magic-random" class="quiet">Surprise me</button>
+        <p class="hint">From <a href="https://www.ascii-magic.com/ascii">ASCII Magic</a>'s open library
+          (<a href="https://github.com/kailashsr38/ascii-magic-art">MIT</a>), by its authors, not made by terrarium.
+          Hue, saturation, brightness, speed and glow work here; themes and characters are terrarium-only.</p>
+      </div>
+      <div class="group only-terrarium">
         <label for="scene">Scene</label>
         <div class="row">
           <button type="button" id="prev" class="icon" title="Previous scene (p)" aria-label="Previous scene">‹</button>
@@ -51,7 +68,7 @@
         <button type="button" id="shuffle" class="quiet">Surprise me</button>
       </div>
 
-      <div class="group">
+      <div class="group only-terrarium">
         <label for="seed">Variation</label>
         <div class="row">
           <input id="seed" type="number" min="0" step="1">
@@ -62,10 +79,12 @@
 
       <div class="group">
         <h2>Look</h2>
-        <label for="theme">Theme</label>
-        <select id="theme"></select>
-        <label for="charset">Characters</label>
-        <select id="charset"></select>
+        <div class="only-terrarium">
+          <label for="theme">Theme</label>
+          <select id="theme"></select>
+          <label for="charset">Characters</label>
+          <select id="charset"></select>
+        </div>
         <label for="hue">Hue shift <output for="hue" id="hue-out"></output></label>
         <input id="hue" type="range" min="0" max="345" step="15">
         <label for="saturation">Saturation <output for="saturation" id="saturation-out"></output></label>
@@ -79,14 +98,16 @@
         <h2>Motion</h2>
         <label for="speed">Speed <output for="speed" id="speed-out"></output></label>
         <input id="speed" type="range" min="0.1" max="4" step="0.05">
-        <label for="density">Amount <output for="density" id="density-out"></output></label>
-        <input id="density" type="range" min="0.2" max="3" step="0.05">
-        <label for="cols">Detail <output for="cols" id="cols-out"></output></label>
-        <input id="cols" type="range" min="36" max="220" step="2">
-        <p class="hint">Detail is the number of columns. More columns means smaller characters and more work per frame.</p>
+        <div class="only-terrarium">
+          <label for="density">Amount <output for="density" id="density-out"></output></label>
+          <input id="density" type="range" min="0.2" max="3" step="0.05">
+          <label for="cols">Detail <output for="cols" id="cols-out"></output></label>
+          <input id="cols" type="range" min="36" max="220" step="2">
+          <p class="hint">Detail is the number of columns. More columns means smaller characters and more work per frame.</p>
+        </div>
       </div>
 
-      <div class="group" id="options-group">
+      <div class="group only-terrarium" id="options-group">
         <h2>This scene</h2>
         <div id="options"></div>
         <button type="button" id="reset-options" class="quiet">Reset scene settings</button>
@@ -106,6 +127,16 @@
       <div class="filters" id="filters" role="group" aria-label="Show scenes from"></div>
     </div>
     <ul class="cards" id="cards"></ul>
+  </section>
+
+  <section class="gallery magic-gallery" aria-labelledby="magic-title">
+    <div class="gallery-head">
+      <h2 id="magic-title">The ASCII Magic library</h2>
+      <p class="hint">Hundreds more animated pieces by <a href="https://www.ascii-magic.com/ascii">ASCII Magic</a>,
+        MIT licensed, playable right here. Click one to open it in the tank.</p>
+      <div class="filters" id="magic-filters" role="group" aria-label="Show pieces from"></div>
+    </div>
+    <ul class="cards" id="magic-cards"></ul>
   </section>
 
   <section class="about">

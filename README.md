@@ -79,6 +79,26 @@ fireworks where you click, scatter the starlings, blow a dandelion. `terrarium -
 with `*`, and `terrarium --info NAME` says what to do. Use `--no-mouse` if you'd rather it left
 your mouse alone.
 
+### ~700 more: the ASCII Magic library
+
+terrarium can also play the [ASCII Magic](https://www.ascii-magic.com/ascii) library: about 700
+animated pieces (landscapes, cities, interfaces, lettering, science, food, music...) by the
+ASCII Magic authors, MIT licensed ([ascii-magic-art](https://github.com/kailashsr38/ascii-magic-art)).
+They play through terrarium's renderer, so themes, charsets, speed and keys all work.
+
+```sh
+terrarium --magic-list moon          # search the library
+terrarium magic:moonlit-sea          # play a piece
+terrarium --magic                    # a random one
+terrarium magic:moonlit-sea -t noir-cyan --charset blocks
+```
+
+Library pieces are JavaScript, so **they need [Node.js](https://nodejs.org)** (18 or newer) on
+your PATH. terrarium's own scenes never do. Each piece is downloaded once from the published npm
+package and cached in `~/.terrarium/magic/`. Two pieces are left out because they're photo
+renderings under the Unsplash license rather than MIT, and so is the arcade category, because
+several of those recreate specific famous games.
+
 ### Keys while it runs
 
 | key | | key | |
@@ -110,6 +130,7 @@ your mouse alone.
 | `--snapshot FILE` | render one frame to `.png`, `.txt` or `.ans` |
 | `--record FILE.gif` | record a GIF (`--size WxH`, `--frames N`, `--warmup SECS`, `--font`, `--font-size`) |
 | `--new NAME`, `--path DIR` | make your own scene / load scenes from a folder |
+| `--magic [PIECE]`, `--magic-list [WORD]`, `magic:PIECE` | the ASCII Magic library (needs Node.js) |
 
 ### Scenes
 
@@ -299,7 +320,7 @@ Projects by other people, collected because they're beautiful. Star counts were 
 | project | what | install |
 |---|---|---|
 | [terminaltexteffects](https://github.com/ChrisBuilds/terminaltexteffects) (Python, MIT, ★4.3k) | dozens of text effects, as an app and a library | `pipx install terminaltexteffects` |
-| [ascii-magic-art](https://github.com/kailashsr38/ascii-magic-art) (JS, MIT, ★441) | 734 animated ASCII pieces you can browse in the terminal | `npx ascii-magic-art --list` |
+| [ascii-magic-art](https://github.com/kailashsr38/ascii-magic-art) (JS, MIT, ★441) | 734 animated ASCII pieces you can browse in the terminal. **Built into terrarium:** `terrarium magic:NAME` | `npx ascii-magic-art --list` |
 | [ASCII-Art](https://github.com/RipperdocNiladri/ASCII-Art) (Python, MIT, ★171) | real-time ASCII rendering experiments | `pip install terminal-ascii-art` |
 | [cinetty](https://github.com/JosssphZhou/cinetty) (Python, MIT) | cinematic terminal animations your coding agent writes from a YAML file (works as a Claude Code skill) | `git clone` + `make setup` |
 
@@ -331,6 +352,10 @@ Know a great one that's missing? Open a PR and add a row.
   - `butterflies`, `koi`, and other creature scenes: [asciiquarium](https://github.com/cmatsuoka/asciiquarium) for proving that ASCII can be alive
   - `blackhole`: Gargantua from *Interstellar*
   - `plasma`, `starfield`, `kaleidoscope`: classic demoscene effects
+- **The ASCII Magic library** played by `terrarium magic:NAME` and on the website is the work of
+  [ASCII Magic](https://www.ascii-magic.com/ascii) ([ascii-magic-art](https://github.com/kailashsr38/ascii-magic-art),
+  MIT). terrarium doesn't copy it into this repo: pieces are fetched from their published npm package.
+  Found via [@animmaster_studio's reel](https://www.instagram.com/reel/DfO_u3SO9wo/).
 - Built by [Asaf Meizner](https://github.com/AsafMeizner) with Claude Code.
 
 ## License

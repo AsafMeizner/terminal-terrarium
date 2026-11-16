@@ -3,6 +3,7 @@
 Run with:  python -m unittest discover -s tests -v
 """
 import io
+import os
 import unicodedata
 import unittest
 
@@ -178,6 +179,58 @@ class CliTests(unittest.TestCase):
             p = os.path.join(d, "x.txt")
             self.assertEqual(main(["jellyfish", "--snapshot", p, "--size", "60x20", "--warmup", "1"]), 0)
             self.assertTrue(os.path.getsize(p) > 0)
+
+
+class MagicTests(unittest.TestCase):
+    """The ASCII Magic library bridge. Offline tests always run; the live one needs Node + network
+    and TERRARIUM_TEST_MAGIC=1."""
+
+    def test_library_pieces_are_not_builtin_scenes(self):
+        from terrarium import magic
+
+        cls = magic.make_scene("moonlit-sea")
+        self.assertTrue(cls._external)
+        self.assertNotIn("magic", all_scenes())
+        self.assertNotIn(cls.name, all_scenes())
+
+    def test_draw_maps_palette_and_square_cells(self):
+        from terrarium import magic
+
+        cls = magic.make_scene("demo-piece")
+        s = cls.__new__(cls)  # skip setup(): no Node needed for this check
+        s.w, s.h, s.t = 20, 6, 0.0
+        s._proc = None
+        s.meta = {"cell": "square"}
+        s._palette = {"a": (255, 0, 0)}
+        s._frame = {"text": "#.\n.#", "color": "a \n a"}
+        cv = Canvas(20, 6)
+        s.draw(cv)
+        drawn = [(i % 20, i // 20, c, cv.fg[i]) for i, c in enumerate(cv.ch) if c != " "]
+        self.assertIn((8, 2, "#", (252, 0, 0)), drawn)   # square cells are two columns wide
+        self.assertIn((9, 2, "#", (252, 0, 0)), drawn)
+        self.assertEqual(len(drawn), 8)
+
+    def test_excluded_pieces(self):
+        from terrarium import magic
+
+        self.assertFalse(magic.allowed("ocean-sunset"))
+        self.assertFalse(magic.allowed("../etc"))
+        self.assertTrue(magic.allowed("moonlit-sea"))
+        with self.assertRaises(magic.MagicError):
+            magic.make_scene("x", {"pieces": [{"slug": "x", "category": "arcade"}]})
+
+    @unittest.skipUnless(os.environ.get("TERRARIUM_TEST_MAGIC") == "1", "set TERRARIUM_TEST_MAGIC=1 (needs Node.js + network)")
+    def test_live_piece(self):
+        from terrarium import magic
+
+        s = magic.make_scene("moonlit-sea")(Context(seed=1), 100, 36)
+        try:
+            cv = Canvas(100, 36)
+            s.update(1.0)
+            s.draw(cv)
+            self.assertGreater(sum(c != " " for c in cv.ch), 500)
+        finally:
+            s.close()
 
 
 if __name__ == "__main__":

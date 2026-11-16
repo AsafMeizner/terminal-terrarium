@@ -233,6 +233,34 @@ button.copy.done { background: var(--brass); color: var(--glass-in); }
 
 #options:empty::after { content: "This scene has no extra settings."; font-size: 13px; color: var(--lichen); }
 
+/* ------------------------------------------------------------------ two libraries */
+.lib-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 14px;
+  background: var(--glass-in);
+  border: 1px solid var(--moss);
+  border-radius: 9px;
+}
+.lib-tab {
+  padding: 7px 8px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--lichen);
+  white-space: normal;
+  line-height: 1.25;
+}
+.lib-tab:hover { background: color-mix(in srgb, var(--moss) 50%, transparent); }
+body:not([data-mode="magic"]) #tab-terrarium,
+body[data-mode="magic"] #tab-magic { background: var(--moss); color: var(--glass); }
+body[data-mode="magic"] .only-terrarium { display: none; }
+body:not([data-mode="magic"]) .only-magic { display: none; }
+#magic-list { font-size: 13px; }
+#magic-list optgroup { color: var(--brass); font-style: normal; }
+#magic-list option { color: var(--glass); }
+
 /* ------------------------------------------------------------------ gallery */
 .gallery { padding: 28px 20px 0; }
 .gallery-head {
@@ -287,7 +315,18 @@ button.copy.done { background: var(--brass); color: var(--glass-in); }
   border: 1px solid var(--moss);
   border-radius: 10px;
 }
-.card:hover img, .card[aria-current="true"] img { border-color: var(--brass); }
+.card canvas.thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 720 / 520;
+  background: var(--glass-in);
+  border: 1px solid var(--moss);
+  border-radius: 10px;
+}
+.card:hover img, .card[aria-current="true"] img,
+.card:hover canvas.thumb, .card[aria-current="true"] canvas.thumb { border-color: var(--brass); }
+.magic-gallery { padding-top: 40px; }
+.magic-gallery .hint { flex-basis: 100%; margin: 0; }
 .card .noshot {
   display: grid;
   place-items: center;

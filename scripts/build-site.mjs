@@ -25,6 +25,15 @@ writeFileSync(join(root, "site", "bundle.json"), JSON.stringify({ version, files
 const scenes = Object.keys(files).filter((f) => f.startsWith("terrarium/scenes/") && !f.endsWith("__init__.py"));
 console.log(`site/bundle.json: ${Object.keys(files).length} files, ${scenes.length} scenes, v${version}`);
 
+// The ASCII Magic library index (network; optional).
+try {
+  const { buildMagic } = await import("./build-magic.mjs");
+  const m = await buildMagic();
+  console.log(`site/magic.json: ${m.pieces.length} ASCII Magic pieces`);
+} catch (e) {
+  console.log(`site/magic.json: skipped (${e.message})`);
+}
+
 // Gallery: screenshots + a little metadata, so the grid shows before Python has loaded.
 const shotsSrc = join(root, "docs", "screenshots");
 const shotsDst = join(root, "site", "shots");

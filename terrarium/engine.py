@@ -572,6 +572,9 @@ class Scene:
     def on_click(self, x, y):
         """The user clicked cell (x, y) (floats, in cells). Override to react."""
 
+    def close(self):
+        """Release anything the scene holds (e.g. a helper process). Called when it's replaced."""
+
     # -- helpers -----------------------------------------------------------
     @property
     def density(self):

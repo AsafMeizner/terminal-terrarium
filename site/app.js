@@ -1,4 +1,6 @@
 // terminal-terrarium playground: UI + canvas renderer. Python runs in worker.js.
+import { loadIndex, loadPiece, MagicPlayer, paintFrame } from "./magic.js";
+
 const $ = (id) => document.getElementById(id);
 const tank = $("tank");
 const art = $("art");
@@ -27,6 +29,13 @@ let workerMs = 0;
 let glowTick = 0;
 let colsChosen = false;
 let laidCols = 0;
+// "terrarium" = our Python scenes; "magic" = a piece from the ASCII Magic library (plain JS)
+let mode = "terrarium";
+let magicIndex = null;
+const player = new MagicPlayer();
+let magicRaf = 0;
+let magicLast = 0;
+let magicAcc = 0;
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -40,11 +49,18 @@ function readHash() {
   }
   out.options = {};
   for (const [k, v] of q) if (k.startsWith("o.")) out.options[k.slice(2)] = v;
+  if (q.has("magic")) out.magic = q.get("magic");
   return out;
 }
 
 function writeHash() {
   const q = new URLSearchParams();
+  if (mode === "magic") {
+    q.set("magic", player.slug || "");
+    for (const k of ["hue", "saturation", "brightness", "speed"]) if (cfg[k] !== DEFAULTS[k]) q.set(k, cfg[k]);
+    history.replaceState(null, "", "#" + q.toString());
+    return;
+  }
   q.set("scene", cfg.scene);
   q.set("seed", cfg.seed);
   for (const k of ["theme", "charset", "hue", "saturation", "brightness", "speed", "density"]) {
@@ -63,6 +79,7 @@ worker.onmessage = (e) => {
   else if (m.type === "error") setStatus("Something broke in the Python side:\n" + m.text + "\n\nTry another scene or reload the page.", true);
   else if (m.type === "ready") onReady(m.meta);
   else if (m.type === "frame") {
+    if (mode === "magic") return;
     latest = m;
     workerMs = workerMs * 0.9 + m.ms * 0.1;
     if (!drawPending) { drawPending = true; requestAnimationFrame(draw); }
@@ -145,26 +162,214 @@ function draw() {
     const x = i - y * W;
     ctx.fillText(chars[i], x * cw, yPad + y * ch + ch / 2);
   }
-  if (!tank.classList.contains("no-bloom")) {
-    // phosphor glow: shrink the frame to 1/6 size, then add it back stretched (soft = blurred)
-    if ((glowTick ^= 1)) {
-      gctx.clearRect(0, 0, glow.width, glow.height);
-      gctx.drawImage(art, 0, 0, glow.width, glow.height);
-    }
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.45;
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(glow, 0, 0, art.width, art.height);
-    ctx.restore();
-  }
+  applyGlow();
   const now = performance.now();
   if (lastFrameAt) fpsEst = fpsEst * 0.9 + (1000 / (now - lastFrameAt)) * 0.1;
   lastFrameAt = now;
 }
 
+function applyGlow() {
+  if (tank.classList.contains("no-bloom")) return;
+  // phosphor glow: shrink the frame to 1/6 size, then add it back stretched (soft = blurred)
+  if ((glowTick ^= 1)) {
+    gctx.clearRect(0, 0, glow.width, glow.height);
+    gctx.drawImage(art, 0, 0, glow.width, glow.height);
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = 0.45;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(glow, 0, 0, art.width, art.height);
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ ASCII Magic library
+function magicColors() {
+  // hue / saturation / brightness for library pieces (they bring their own palettes)
+  art.style.filter = mode === "magic"
+    ? `hue-rotate(${cfg.hue}deg) saturate(${cfg.saturation}) brightness(${cfg.brightness})` : "";
+}
+
+function magicLoop(now) {
+  magicRaf = requestAnimationFrame(magicLoop);
+  if (!player.draw) return;
+  const fps = player.meta.fps || 20;
+  const dt = magicLast ? Math.min(0.1, (now - magicLast) / 1000) : 0;
+  magicLast = now;
+  magicAcc += dt;
+  if (magicAcc < 1 / fps && player.t > 0) return;
+  const step = cfg.paused ? 0 : magicAcc * cfg.speed;
+  magicAcc = 0;
+  let out;
+  try {
+    out = player.frame(step);
+  } catch (err) {
+    setStatus("This library piece failed to draw: " + err.message, true);
+    return;
+  }
+  const r = tank.getBoundingClientRect();
+  ctx.setTransform(cell.dpr || 1, 0, 0, cell.dpr || 1, 0, 0);
+  const size = paintFrame(ctx, out.frame, out.palette, out.square, r.width, r.height, FONT, BG);
+  applyGlow();
+  if (lastFrameAt) fpsEst = fpsEst * 0.9 + (1000 / (now - lastFrameAt)) * 0.1;
+  lastFrameAt = now;
+  $("cols-out").textContent = `${size.cols} x ${size.rows}`;
+}
+
+async function openMagic(slug) {
+  const p = magicIndex && magicIndex.pieces.find((x) => x.slug === slug);
+  if (!p) return;
+  setStatus(`Loading ${p.name} from the ASCII Magic library...`);
+  try {
+    await player.open(slug);
+  } catch (err) {
+    setStatus(`That piece did not load (${err.message}). Check your connection and try again.`, true);
+    return;
+  }
+  setStatus("");
+  if (mode !== "magic") {
+    mode = "magic";
+    worker.postMessage({ type: "configure", cfg: { ...cfg, rows, paused: true } }); // rest the Python side
+  }
+  document.body.dataset.mode = "magic";
+  magicColors();
+  $("magic-list").value = slug;
+  $("magic-note").textContent = p.note;
+  $("scene-title").textContent = p.name;
+  document.title = `${p.name}, terminal-terrarium`;
+  $("interact").textContent = "";
+  art.style.cursor = "default";
+  magicLast = 0;
+  magicAcc = 1;
+  if (!magicRaf) magicRaf = requestAnimationFrame(magicLoop);
+  writeHash();
+  updateCli();
+  markCurrentCard();
+}
+
+function stopMagic() {
+  mode = "terrarium";
+  document.body.dataset.mode = "terrarium";
+  cancelAnimationFrame(magicRaf);
+  magicRaf = 0;
+  magicColors();
+}
+
+function leaveMagic() {
+  if (mode !== "magic") return;
+  stopMagic();
+  syncControls();
+  send(true);
+}
+
+function fillMagicList() {
+  const list = $("magic-list");
+  const q = $("magic-search").value.trim().toLowerCase();
+  const cat = $("magic-cat").value;
+  list.replaceChildren();
+  const cats = new Map(magicIndex.categories.map((c) => [c.id, c.name]));
+  const groups = new Map();
+  for (const p of magicIndex.pieces) {
+    if (cat && p.category !== cat) continue;
+    if (q && !(p.name.toLowerCase().includes(q) || p.note.toLowerCase().includes(q))) continue;
+    const g = cats.get(p.category) || "Other";
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(p);
+  }
+  let n = 0;
+  for (const [g, items] of groups) {
+    const og = document.createElement("optgroup");
+    og.label = g;
+    for (const p of items) { og.append(new Option(p.name, p.slug)); n++; }
+    list.append(og);
+  }
+  $("magic-count").textContent = `${n} pieces`;
+  if (player.slug) list.value = player.slug;
+}
+
+async function initMagic() {
+  magicIndex = await loadIndex();
+  if (!magicIndex.pieces.length) { $("tab-magic").hidden = true; return; }
+  $("tab-magic").textContent = `ASCII Magic library (${magicIndex.pieces.length})`;
+  for (const c of magicIndex.categories) $("magic-cat").add(new Option(c.name, c.id));
+  fillMagicList();
+  $("magic-search").addEventListener("input", fillMagicList);
+  $("magic-cat").addEventListener("change", fillMagicList);
+  $("magic-list").addEventListener("change", () => openMagic($("magic-list").value));
+  $("magic-random").addEventListener("click", () => {
+    const opts = [...$("magic-list").options];
+    if (opts.length) openMagic(opts[Math.floor(Math.random() * opts.length)].value);
+  });
+  $("tab-magic").addEventListener("click", () => {
+    if (mode === "magic") return;
+    const first = player.slug || ($("magic-list").options[0] && $("magic-list").options[0].value);
+    if (first) openMagic(first);
+  });
+  $("tab-terrarium").addEventListener("click", leaveMagic);
+  buildMagicGallery();
+}
+
+// the library also gets a gallery: still frames drawn live as cards scroll into view
+function buildMagicGallery() {
+  const cards = $("magic-cards");
+  const filters = $("magic-filters");
+  const cats = magicIndex.categories;
+  const show = (id) => {
+    cards.querySelectorAll("li").forEach((li) => { li.hidden = id !== "all" && li.dataset.cat !== id; });
+    filters.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.cat === id)));
+  };
+  const counts = {};
+  for (const p of magicIndex.pieces) counts[p.category] = (counts[p.category] || 0) + 1;
+  for (const c of [{ id: "all", name: "All" }, ...cats]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.cat = c.id;
+    b.textContent = c.id === "all" ? `All ${magicIndex.pieces.length}` : `${c.name} ${counts[c.id] || 0}`;
+    b.addEventListener("click", () => show(c.id));
+    filters.append(b);
+  }
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      io.unobserve(e.target);
+      const cv = e.target;
+      loadPiece(cv.dataset.slug).then((mod) => {
+        const draw = mod.default();
+        const f = draw(2.0);
+        const c2 = cv.getContext("2d");
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        cv.width = cv.clientWidth * dpr;
+        cv.height = cv.clientHeight * dpr;
+        c2.setTransform(dpr, 0, 0, dpr, 0, 0);
+        paintFrame(c2, f, (f && f.palette) || mod.meta.palette, mod.meta.cell === "square", cv.clientWidth, cv.clientHeight, FONT, BG);
+      }).catch(() => { cv.replaceWith(Object.assign(document.createElement("span"), { className: "noshot", textContent: "preview unavailable" })); });
+    }
+  }, { rootMargin: "300px" });
+  for (const p of magicIndex.pieces) {
+    const li = document.createElement("li");
+    li.dataset.cat = p.category;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "card";
+    btn.dataset.magic = p.slug;
+    const cv = document.createElement("canvas");
+    cv.className = "thumb";
+    cv.dataset.slug = p.slug;
+    cv.setAttribute("aria-label", `${p.name}: ${p.note}`);
+    const title = Object.assign(document.createElement("span"), { className: "card-title", textContent: p.name });
+    const blurb = Object.assign(document.createElement("span"), { className: "card-blurb", textContent: p.note });
+    btn.append(cv, title, blurb);
+    btn.addEventListener("click", () => { window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); openMagic(p.slug); });
+    li.append(btn);
+    cards.append(li);
+    io.observe(cv);
+  }
+  show("all");
+}
+
 setInterval(() => {
+  if (ready && mode === "magic") { $("perf").textContent = `${fpsEst.toFixed(0)} fps, plain JavaScript`; return; }
   if (ready) $("perf").textContent = `${fpsEst.toFixed(0)} fps, ${workerMs.toFixed(1)} ms of Python per frame`;
 }, 1000);
 
@@ -260,6 +465,12 @@ function syncControls() {
 }
 
 function updateCli() {
+  if (mode === "magic") {
+    $("cli").textContent = `terrarium magic:${player.slug}`;
+    $("cli-hint").textContent = "This piece in your terminal (library pieces need Node.js installed):";
+    return;
+  }
+  $("cli-hint").textContent = "This exact scene in your terminal:";
   const s = sceneMeta();
   const parts = ["terrarium", cfg.scene, "--seed", cfg.seed];
   if (cfg.theme !== "natural") parts.push("-t", cfg.theme);
@@ -306,6 +517,7 @@ function sanitizeOptions() {
 function newSeed() { return Math.floor(Math.random() * 1e6); }
 
 function setScene(name, { reseed = false } = {}) {
+  if (mode === "magic") stopMagic();
   cfg.scene = name;
   cfg.options = {};
   if (reseed) cfg.seed = newSeed();
@@ -351,7 +563,11 @@ function bindControls() {
   $("reroll").addEventListener("click", () => { cfg.seed = newSeed(); syncControls(); send(true); });
   for (const k of ["theme", "charset"]) $(k).addEventListener("change", () => { cfg[k] = $(k).value; send(); });
   for (const k of ["hue", "saturation", "brightness", "speed", "density"]) {
-    $(k).addEventListener("input", () => { cfg[k] = parseFloat($(k).value); syncControls(); send(); });
+    $(k).addEventListener("input", () => {
+      cfg[k] = parseFloat($(k).value);
+      syncControls();
+      if (mode === "magic") { magicColors(); writeHash(); } else send();
+    });
   }
   $("cols").addEventListener("input", () => { colsChosen = true; cfg.cols = parseInt($("cols").value, 10); layout(); syncControls(); send(); });
   $("bloom").addEventListener("change", () => tank.classList.toggle("no-bloom", !$("bloom").checked));
@@ -438,6 +654,8 @@ async function onReady(m) {
   ready = true;
   setStatus("");
   send(true);
+  await initMagic();
+  if (fromHash.magic) openMagic(fromHash.magic);
 }
 
 // ------------------------------------------------------------------ gallery
@@ -460,7 +678,10 @@ function openScene(name) {
 }
 
 function markCurrentCard() {
-  document.querySelectorAll(".card").forEach((c) => c.setAttribute("aria-current", String(c.dataset.scene === cfg.scene)));
+  document.querySelectorAll(".card").forEach((c) => {
+    const on = mode === "magic" ? c.dataset.magic === player.slug : c.dataset.scene === cfg.scene;
+    c.setAttribute("aria-current", String(on));
+  });
 }
 
 (async function buildGallery() {

@@ -41,7 +41,8 @@ def add_path(path):
 
 def _collect(cls):
     for sub in cls.__subclasses__():
-        if getattr(sub, "name", ""):
+        # external scenes (ASCII Magic library pieces) are made on demand, never listed
+        if getattr(sub, "name", "") and not getattr(sub, "_external", False):
             _REGISTRY[sub.name] = sub
         _collect(sub)
 

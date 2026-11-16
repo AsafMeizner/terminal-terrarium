@@ -51,6 +51,8 @@ class App:
             seed = self.seed
         ctx = Context(seed=seed, density=self.density, options=self.args.options)
         cls = self.classes[self.idx]
+        if self.scene is not None:
+            self.scene.close()
         self.scene = cls(ctx, w, h)
         self.scene_started = time.perf_counter()
         if self.args.title:
@@ -193,5 +195,7 @@ class App:
             pass
         finally:
             term.exit()
+            if self.scene is not None:
+                self.scene.close()
             if self.scene is not None:
                 print(f"terrarium: {self.scene.name} --seed {self.scene.ctx.seed}   (replay this exact variation)")
